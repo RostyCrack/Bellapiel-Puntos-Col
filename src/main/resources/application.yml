@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: bellapiel-puntoscol
+  banner:
+    charset: UTF-8
+    location: classpath:/banner.txt
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+      exclude: WEB-INF/**
+  datasource:
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://192.168.92.192:1433;database=ICGFRONT
+    username: sa
+    password: Masterkey.
+
+    jpa:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        ddl-auto: update
+      show-sql: true
+
+
+logging:
+  file:
+    name: D:\ICG\puntoscol\bellapiel-puntos-col.log
+
+server:
+  port: 8091
+
+puntos-colombia:
+  url: https://apinp.puntoscolombia.com
+  version-token: v2
+  version-account: v1
+  version-accumulation: v1
+  version-cancellation: v1
+url:
+  headers:
+    ca-channel: L
+    ca-partnercode: 830137461
+    x-remote-ip: 127.0.0.1
+  grant-type: client_credentials
+  client-id: 629a27ceada583648ac7625a45e899b19f
+  client-secret: 363ee7a52b7b4a4292fb6dca6fb13262
+  locationCode: BPCC
+
