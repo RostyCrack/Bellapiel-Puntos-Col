@@ -7,6 +7,7 @@ package com.hardtech.bellapielpuntoscol.context.domain.cancelation;
 
 import java.util.List;
 
+
 public class CancelationResponse {
     private String approbationNumber;
     private List<Balance> balances;

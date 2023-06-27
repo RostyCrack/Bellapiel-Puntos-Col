@@ -8,19 +8,24 @@ package com.hardtech.bellapielpuntoscol.infrastructure;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
 
 @Entity(
         name = "TESORERIA"
 )
-@IdClass(TesoreriaId.class)
+
 public class Tesoreria {
+
     @Id
+    @Column(
+            name = "POSICION"
+    )
+    private String posicion;
+
     @Column(
             name = "SERIE"
     )
     private String serie;
-    @Id
+
     @Column(
             name = "NUMERO"
     )

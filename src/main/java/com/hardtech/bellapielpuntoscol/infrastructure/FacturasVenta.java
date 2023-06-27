@@ -9,11 +9,21 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity(
         name = "FACTURASVENTA"
 )
 @IdClass(FacturasVentaId.class)
+@Getter
+@Setter
+@NoArgsConstructor
 public class FacturasVenta {
     @Id
     @Column(
@@ -37,47 +47,14 @@ public class FacturasVenta {
             name = "CODVENDEDOR"
     )
     private String codVendedor;
+    @Column(
+            name = "FECHA"
+    )
+    private LocalDateTime fecha;
 
-    public FacturasVenta() {
-    }
+    @Column(
+            name = "HORA"
+    )
+    private LocalTime hora;
 
-    public String getNumSerie() {
-        return this.numSerie;
-    }
-
-    public int getNumFactura() {
-        return this.numFactura;
-    }
-
-    public int getCodCliente() {
-        return this.codCliente;
-    }
-
-    public String getCaja() {
-        return this.caja;
-    }
-
-    public String getCodVendedor() {
-        return this.codVendedor;
-    }
-
-    public void setNumSerie(final String numSerie) {
-        this.numSerie = numSerie;
-    }
-
-    public void setNumFactura(final int numFactura) {
-        this.numFactura = numFactura;
-    }
-
-    public void setCodCliente(final int codCliente) {
-        this.codCliente = codCliente;
-    }
-
-    public void setCaja(final String caja) {
-        this.caja = caja;
-    }
-
-    public void setCodVendedor(final String codVendedor) {
-        this.codVendedor = codVendedor;
-    }
 }

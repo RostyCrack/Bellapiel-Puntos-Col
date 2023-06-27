@@ -15,7 +15,7 @@ public class RequestBody {
     private String documentType;
     private String partnerCode;
     private TransactionIdentifier transactionIdentifier;
-    private List<PaymentMethod> paymentMethods = new ArrayList();
+    private List<PaymentMethod> paymentMethods = new ArrayList<>();
 
     public void append(PaymentMethod paymentMethod) {
         this.paymentMethods.add(paymentMethod);

@@ -7,9 +7,12 @@ package com.hardtech.bellapielpuntoscol.infrastructure;
 
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TesoreriaRepository extends JpaRepository<Tesoreria, TesoreriaId> {
-    List<Tesoreria> findAllBySerieAndNumero(String serie, int numero);
+
+    @Query("SELECT t FROM TESORERIA t WHERE t.serie = :serie AND t.numero = :numero")
+    List<Tesoreria> findDistinctBySerieAndNumero(String serie, int numero);
 }
