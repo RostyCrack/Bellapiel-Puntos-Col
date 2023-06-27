@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Objects;
 
 
 @Service
@@ -111,13 +110,15 @@ public class PuntosService {
                     int var10001 = factura.getNumFactura();
                     log.info("Fetched factura: " + var10001 + " " + factura.getNumSerie());
                     ClientesCamposLibres cliente = this.clienteCamposLibresRepository.findByCodCliente(factura.getCodCliente());
+                    AccountResponse accountResponse = this.processShortBalance(cliente, factura);
+
                     try{
-                        this.process(transaction, factura, cliente);
+                        this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
                     }
                     catch (Exception var7) {
                         log.error("Error al acumular puntos: " + var7.getMessage());
                         try {
-                            this.process(transaction, factura, cliente);
+                            this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
                         }
                         catch (Exception e){
                             log.error("Error al acumular puntos: " + e.getMessage());
@@ -143,14 +144,15 @@ public class PuntosService {
         int var10001 = factura.getNumFactura();
         log.info("Fetched factura: " + var10001 + " " + factura.getNumSerie());
         ClientesCamposLibres cliente = this.clienteCamposLibresRepository.findByCodCliente(factura.getCodCliente());
+        AccountResponse accountResponse = this.processShortBalance(cliente, factura);
 
         try {
-            this.process(transaction, factura, cliente);
+            this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
         } catch (Exception var7) {
             log.error("Error al acumular puntos: " + var7.getMessage());
             log.info("Reintentando acumulacion...");
             try {
-                this.process(transaction, factura, cliente);
+                this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
             }
             catch (Exception e) {
                 log.error("Error al acumular puntos: " + e.getMessage());
@@ -160,7 +162,7 @@ public class PuntosService {
         return "Acumulacion exitosa";
     }
 
-    private void process(FacturasVentaCamposLibres transaction, FacturasVenta factura, ClientesCamposLibres cliente) {
+    private AccountResponse processShortBalance(ClientesCamposLibres cliente, FacturasVenta factura ){
         String documentNo = this.clientesRepository.findByCodCliente(factura.getCodCliente()).getDocumentNo();
         String documentType = cliente.getTipoDeDocumento();
         if (documentType.contains("13")) {
@@ -168,26 +170,24 @@ public class PuntosService {
         } else {
             documentType = "3";
         }
+        return this.sendShortBalanceRequest(documentNo, documentType, this.tokenResponse);
 
-        log.info("Sending short balance request for document: " + documentNo + ", type: " + documentType);
-        AccountResponse accountResponse = this.sendShortBalanceRequest(documentNo, documentType, null, null, this.tokenResponse);
+    }
+    private void process(FacturasVentaCamposLibres transaction, FacturasVenta factura,
+                         AccountResponse accountResponse, String documentNo, String documentType) {
         if (accountResponse == null) {
-            log.error("Short balance request failed: " + documentNo + ", type: " + documentType);
+            log.info("Error al obtener el balance del cliente");
             transaction.setPuntosAcumulados(0);
             transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
             this.facturasVentaCamposLibresRepository.save(transaction);
         } else {
-            log.info("Short balance request sent successfully");
             AccumulationResponse accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
             if (accumulationResponse != null) {
                 log.info("Accumulation request sent successfully");
                 transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
             } else {
-
                 transaction.setPuntosAcumulados(0);
                 transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
-                throw new RuntimeException("Error al acumular, contactese con Puntos Colombia");
-
             }
 
             this.facturasVentaCamposLibresRepository.save(transaction);
@@ -284,7 +284,7 @@ public class PuntosService {
         }
     }
 
-    public AccountResponse sendShortBalanceRequest(String documentNo, String documentType, String authDocumentType, String authDocumentNo, TokenResponse tokenResponse) {
+    public AccountResponse sendShortBalanceRequest(String documentNo, String documentType, TokenResponse tokenResponse) {
         AccountResponse accountResponse = null;
 
         try {
@@ -295,10 +295,7 @@ public class PuntosService {
             headers.set("X-REMOTE-IP", this.xRemoteIp);
             log.info("Sending shortBalance request to: " + this.url + "/pos-management/" + this.versionAccount + "/accounts/" + documentNo + "/shortBalance");
             UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(this.url + "/pos-management/" + this.versionAccount + "/accounts/" + documentNo + "/shortBalance").queryParam("partnerCode", this.partnerCode).queryParam("LocationCode", this.locationCode).queryParam("documentType", documentType);
-            if (Objects.equals(documentType, "5")) {
-                builder.queryParam("authDocumentType", authDocumentType);
-                builder.queryParam("authDocumentNo", authDocumentNo);
-            }
+           
 
             ResponseEntity<AccountResponse> response = restTemplate.exchange(builder.toUriString(), HttpMethod.GET, new HttpEntity<>(headers), AccountResponse.class);
             if (response.getStatusCode().is2xxSuccessful()) {
