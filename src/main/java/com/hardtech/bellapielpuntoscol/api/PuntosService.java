@@ -180,18 +180,14 @@ public class PuntosService {
             log.info("Short balance request sent successfully");
             AccumulationResponse accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
             if (accumulationResponse != null) {
+                log.info("Accumulation request sent successfully");
                 transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
             } else {
-                accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
-                if (accumulationResponse != null){
-                    transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
-                }
-                else {
-                    log.error("Accumulation request failed: " + documentNo + ", type: " + documentType);
-                    transaction.setPuntosAcumulados(0);
-                    transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
-                    throw new RuntimeException("Error al acumular, contactese con Puntos Colombia");
-                }
+
+                transaction.setPuntosAcumulados(0);
+                transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
+                throw new RuntimeException("Error al acumular, contactese con Puntos Colombia");
+
             }
 
             this.facturasVentaCamposLibresRepository.save(transaction);
