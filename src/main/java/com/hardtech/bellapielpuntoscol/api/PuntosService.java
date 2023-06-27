@@ -93,6 +93,7 @@ public class PuntosService {
 
     public void accumulate() {
         LocalDateTime minDate = LocalDateTime.of(1899, 12, 30, 0, 0);
+
         log.info("Fetching transactions... ");
         List<FacturasVentaCamposLibres> notAccumulated = this.facturasVentaCamposLibresRepository.findByAccumulatedAfter(minDate);
         if (notAccumulated.isEmpty()) {
@@ -150,14 +151,8 @@ public class PuntosService {
             this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
         } catch (Exception var7) {
             log.error("Error al acumular puntos: " + var7.getMessage());
-            log.info("Reintentando acumulacion...");
-            try {
-                this.process(transaction, factura, accountResponse, String.valueOf(cliente.getCodCliente()), cliente.getTipoDeDocumento());
-            }
-            catch (Exception e) {
-                log.error("Error al acumular puntos: " + e.getMessage());
-                return e.getMessage();
-            }
+            return "Error al acumular puntos: " + var7.getMessage();
+
         }
         return "Acumulacion exitosa";
     }
@@ -175,13 +170,25 @@ public class PuntosService {
     }
     private void process(FacturasVentaCamposLibres transaction, FacturasVenta factura,
                          AccountResponse accountResponse, String documentNo, String documentType) {
+        AccumulationResponse accumulationResponse;
         if (accountResponse == null) {
             log.info("Error al obtener el balance del cliente");
             transaction.setPuntosAcumulados(0);
             transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
             this.facturasVentaCamposLibresRepository.save(transaction);
         } else {
-            AccumulationResponse accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
+            try {
+                 accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
+            }
+            catch (Exception e){
+                try{
+                    log.info("Reintentando acumulacion...");
+                     accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType);
+                }
+                catch (Exception ex){
+                    throw ex;
+                }
+            }
             if (accumulationResponse != null) {
                 log.info("Accumulation request sent successfully");
                 transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
@@ -207,18 +214,17 @@ public class PuntosService {
         String newJson = this.buildCancellationJsonRequest(originalTransactionId, newTransactionId);
 
         try {
-            log.info("Sending cancelation request for transaction: " + originalTransactionId);
-            this.sendCancellationRequest(newJson);
+            log.info("Sending cancellation request for transaction: " + originalTransactionId);
+            log.info(this.sendCancellationRequest(newJson).toString());
         } catch (Exception var6) {
             log.error("Error al cancelar puntos: " + var6.getMessage());
                 log.info("Reintentando cancelacion puntos...");
                 try {
-                    this.sendCancellationRequest(newJson);
+                    log.info(this.sendCancellationRequest(newJson).toString());
                 }
                 catch (Exception e) {
                     log.error("Error al cancelar puntos: " + var6.getMessage() + " - No se volverá a intentar.");
                     return "Error al cancelar puntos, contacte con Puntos Colombia";
-
                 }
             }
 
@@ -356,8 +362,8 @@ public class PuntosService {
         }
     }
 
-    public void sendCancellationRequest(String newJson) {
-        RestTemplate restTemplate = buildRestTemplate();
+    public CancelationResponse sendCancellationRequest(String newJson) {
+        RestTemplate restTemplate = new RestTemplateBuilder().setConnectTimeout(Duration.ofSeconds(13L)).setReadTimeout(Duration.ofSeconds(13L)).build();
         String requestUrl = this.url + "/pos-management/" + this.versionCancellation + "/transactions/cancel";
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(this.tokenResponse.getAccessToken());
@@ -367,12 +373,13 @@ public class PuntosService {
         try {
             ResponseEntity<CancelationResponse> response = restTemplate
                     .exchange(requestUrl, HttpMethod.POST, new HttpEntity<>(newJson, headers), CancelationResponse.class);
-            response.getBody();
             log.info("Cancelation request sent successfully");
+            return response.getBody();
         } catch (ResourceAccessException | HttpServerErrorException | HttpClientErrorException var6) {
             log.error(var6.getMessage());
             throw var6;
         }
+
     }
 
     @SneakyThrows
@@ -470,13 +477,14 @@ public class PuntosService {
         }
 
         public void handleError(ClientHttpResponse response) throws IOException {
-            if (response.getStatusCode().value() == 400) {
+            if (response.getStatusCode().value() == 422 || response.getStatusCode().value() == 400) {
                 throw new CommonBusinessErrorException();
             }
             else if (response.getStatusCode().value() == 408) {
                 throw new TimeOutException();
             } else {
-                throw new RuntimeException("Error al cumular puntos, contactese con Puntos Colombia");
+                log.info(response.getStatusCode().value() + " " + response.getBody());
+                throw new RuntimeException("Error al acumular puntos, contactese con Puntos Colombia");
             }
         }
     }
