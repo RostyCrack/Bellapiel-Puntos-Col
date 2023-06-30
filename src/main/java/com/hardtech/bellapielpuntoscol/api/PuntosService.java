@@ -200,7 +200,7 @@ public class PuntosService {
           transaction.setPuntosAcumulados(0);
           transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
           this.facturasVentaCamposLibresRepository.save(transaction);
-          return "Error al acumular puntos: " + e.getMessage();
+          return "Error al acumular puntos: no estas registrado en Puntos Colombia";
       }
 
       /*
@@ -244,7 +244,6 @@ public class PuntosService {
               transactionIdentifier = this.createTransactionIdentifier(factura, LocalDateTime.now());
               log.info("Reintentando acumulacion");
               accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
-              transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
           }
           catch (Exception e1){
               log.info("Reintentando cancelacion...");
@@ -253,20 +252,18 @@ public class PuntosService {
                   transactionIdentifier = this.createTransactionIdentifier(factura, LocalDateTime.now());
                   log.info("Reintentando acumulacion");
                   accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
-                  transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
               }
               catch (Exception e2){
                   transaction.setPuntosAcumulados(0);
                   transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
+                  transaction.setMensajePuntos(e.getMessage());
                   log.error("Error cancelando. No se volvera a intentar");
                   throw e;
               }
           }
       }
-
-      if(accumulationResponse != null){
-          log.info("Puntos acumulados: " + accumulationResponse.getMainBalance().getPointsEarned());
-      }
+      transaction.setPuntosAcumulados(accumulationResponse.getMainBalance().getPointsEarned());
+      log.info("Puntos acumulados: " + accumulationResponse.getMainBalance().getPointsEarned());
 
       this.facturasVentaCamposLibresRepository.save(transaction);
   }
@@ -305,7 +302,7 @@ public class PuntosService {
               this.facturasVentaCamposLibresRepository.save(transaction);
               return accumulationResponse;
           } catch (HttpServerErrorException var14) {
-              this.flujoCancellation(factura, transactionIdentifier, transaction);
+              this.flujoCancellation( transactionIdentifier, transaction, factura);
               transaction.setMensajePuntos(var14.getMessage());
               this.facturasVentaCamposLibresRepository.save(transaction);
               throw var14;
@@ -315,29 +312,28 @@ public class PuntosService {
 
               if (response.getStatusCode().value() == 408) {
                   throw new TimeOutException();
-              } else if(response.getStatusCode().value() == 422) {
+              } else if(response.getMessage().contains("COMMON_BUSINESS_ERROR")) {
                   throw new CommonBusinessErrorException();
               }
               else {
                   log.error(response.getMessage());
-                  throw new RuntimeException("Error al acumular puntos, contactese con Puntos Colombia");
+                  throw new RuntimeException("Contactese con Puntos Colombia");
               }
           }
       } else {
-          transaction.setMensajePuntos("No estás registrado, descarga la APP de Puntos Colombia y regístrate");
+          transaction.setMensajePuntos("Cuenta no permitada para acumular puntos");
           this.facturasVentaCamposLibresRepository.save(transaction);
-          throw new RuntimeException("No estás registrado, descarga la APP de Puntos Colombia y regístrate");
+          throw new RuntimeException("Contactese con Puntos Colombia");
       }
   }
 
     /**
      * Metodo que se encarga del flujo deuna cancelacion automatica
-     * @param factura Factura asociada a la transaccion
      * @param originalTransactionId Identificador de la transaccion original
      * @param transaction Transaccion a cancelar
      * @return Respuesta de la peticion de cancelacion
      */
-  public String flujoCancellation(FacturasVenta factura, TransactionIdentifier originalTransactionId, FacturasVentaCamposLibres transaction) {
+  public String flujoCancellation(TransactionIdentifier originalTransactionId, FacturasVentaCamposLibres transaction, FacturasVenta facturaDevolucion) {
 
       if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
@@ -345,16 +341,12 @@ public class PuntosService {
           log.info("Token request sent successfully");
       }
 
-      TransactionIdentifier newTransactionId = this.createTransactionIdentifier(factura);
+      TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, LocalDateTime.now());
       String newJson = this.buildCancellationJsonRequest(originalTransactionId, newTransactionId);
       CancelationResponse cancellationResponse;
       try {
           log.info("Sending Cancellation request for transaction: " + originalTransactionId);
           cancellationResponse = this.sendCancellationRequest(newJson);
-          log.info((cancellationResponse).toString());
-          transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
-          transaction.setPuntosAcumulados(transaction.getPuntosAcumulados() * -1);
-          this.facturasVentaCamposLibresRepository.save(transaction);
           log.info("Cancellation request sent successfully");
 
       }catch (HttpServerErrorException | TimeOutException e){
@@ -362,18 +354,14 @@ public class PuntosService {
             return "Error al cancelar puntos.";
       }
       catch (Exception var6) {
-          log.error("Error al cancelar puntos: " + var6.getMessage());
+          log.error("Error: " + var6.getMessage());
           log.info("Reintentando cancelacion puntos...");
           try {
               cancellationResponse = this.sendCancellationRequest(newJson);
-              log.info(cancellationResponse.toString());
-              transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
-              transaction.setPuntosAcumulados(transaction.getPuntosAcumulados() * -1);
-              this.facturasVentaCamposLibresRepository.save(transaction);
               log.info("Cancellation request sent successfully");
           }
           catch (Exception e) {
-              log.error("Error al cancelar puntos, no se volvera a intentar: " + var6.getMessage());
+              log.error("Error al cancelar puntos, no se volvera a intentar. " + var6.getMessage());
               return "Error al cancelar puntos";
           }
       }
@@ -405,21 +393,18 @@ public class PuntosService {
           * Se populan los campos de la devolucion
        */
       FacturasVentaCamposLibres transaction = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
-      FacturasVentaCamposLibres devolucionCamposLibres = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
+      FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
 
-      devolucionCamposLibres.setPuntosAcumulados(transaction.getPuntosAcumulados() *-1);
-      devolucionCamposLibres.setMensajePuntos("Devolucion");
-      devolucionCamposLibres.setFechaAcumulacionPuntos(LocalDateTime.now());
-      facturasVentaCamposLibresRepository.save(devolucionCamposLibres);
 
       /*
        * Se realiza la cancelacion
        */
       FacturasVenta factura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
+      FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
       log.info("Fetched.");
       log.info("Creating transactionId...: ");
       TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos());
-      return this.flujoCancellation(factura, oldTransactionId, transaction);
+      return this.flujoCancellation(oldTransactionId, transactionDevolucion, devolucionFactura);
   }
 
 
