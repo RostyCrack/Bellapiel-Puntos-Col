@@ -352,6 +352,10 @@ public class PuntosService {
           log.info("Sending Cancellation request for transaction: " + originalTransactionId);
           cancellationResponse = this.sendCancellationRequest(newJson);
           log.info((cancellationResponse).toString());
+          transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
+          transaction.setPuntosAcumulados(transaction.getPuntosAcumulados() * -1);
+          this.facturasVentaCamposLibresRepository.save(transaction);
+          log.info("Cancellation request sent successfully");
 
       }catch (HttpServerErrorException | TimeOutException e){
             log.error("Error al cancelar por parte del serivdor...");
@@ -363,16 +367,15 @@ public class PuntosService {
           try {
               cancellationResponse = this.sendCancellationRequest(newJson);
               log.info(cancellationResponse.toString());
+              transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
+              transaction.setPuntosAcumulados(transaction.getPuntosAcumulados() * -1);
+              this.facturasVentaCamposLibresRepository.save(transaction);
+              log.info("Cancellation request sent successfully");
           }
           catch (Exception e) {
               log.error("Error al cancelar puntos, no se volvera a intentar: " + var6.getMessage());
               return "Error al cancelar puntos";
           }
-      }finally {
-          transaction.setFechaAcumulacionPuntos(LocalDateTime.of(1899, 1, 1, 0, 0));
-          transaction.setPuntosAcumulados(transaction.getPuntosAcumulados() * -1);
-          this.facturasVentaCamposLibresRepository.save(transaction);
-          log.info("Cancellation request sent successfully");
       }
       return "Cancelacion exitosa";
   }
