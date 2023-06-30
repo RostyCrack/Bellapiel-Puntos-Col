@@ -60,7 +60,7 @@ public class TokenResponse {
     }
 
     public void setExpiration() {
-        this.expiresAt = LocalDateTime.now().plusSeconds((long)this.expiresIn);
+        this.expiresAt = LocalDateTime.now().plusSeconds(this.expiresIn);
         this.isTokenExpired = false;
     }
 

@@ -19,7 +19,7 @@ public class AccumulationController {
 
     @GetMapping({"/puntos-colombia/v1/acumular-pendientes"})
     public String sendAccumulation() {
-        this.puntosService.accumulate();
+        this.puntosService.accumulatePending();
         return "Success";
     }
 
@@ -30,6 +30,6 @@ public class AccumulationController {
 
     @GetMapping({"/puntos-colombia/v1/cancelar"})
     public String sendDevolution(@RequestParam String numSerie, @RequestParam int numFactura) {
-        return this.puntosService.sendCancellation(numSerie, numFactura);
+        return this.puntosService.cancellation(numSerie, numFactura);
     }
 }

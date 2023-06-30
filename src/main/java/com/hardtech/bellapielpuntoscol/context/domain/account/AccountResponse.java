@@ -85,6 +85,6 @@ public class AccountResponse {
 
     public String toString() {
         String var10000 = this.mobilePhoneNo;
-        return "AccountResponse{mobilePhoneNo='" + var10000 + "', mainBalance=" + String.valueOf(this.mainBalance) + ", allowRedemption=" + this.allowRedemption + ", totpActive=" + this.totpActive + ", name='" + this.name + "', allowAccrual=" + this.allowAccrual + ", email='" + this.email + "'}";
+        return "AccountResponse{mobilePhoneNo='" + var10000 + "', mainBalance=" + this.mainBalance + ", allowRedemption=" + this.allowRedemption + ", totpActive=" + this.totpActive + ", name='" + this.name + "', allowAccrual=" + this.allowAccrual + ", email='" + this.email + "'}";
     }
 }

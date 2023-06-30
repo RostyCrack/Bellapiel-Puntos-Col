@@ -33,7 +33,7 @@ public class MainBalance {
 
     public String toString() {
         long var10000 = this.pointsValueInMoney;
-        return "MainBalance{pointsValueInMoney=" + var10000 + ", expiringPoints=" + this.expiringPoints + ", pointsAmount=" + this.pointsAmount + ", pointsMoneyRatio=" + this.pointsMoneyRatio + ", expirationDate=" + String.valueOf(this.expirationDate) + "}";
+        return "MainBalance{pointsValueInMoney=" + var10000 + ", expiringPoints=" + this.expiringPoints + ", pointsAmount=" + this.pointsAmount + ", pointsMoneyRatio=" + this.pointsMoneyRatio + ", expirationDate=" + this.expirationDate + "}";
     }
 
     public long getPointsValueInMoney() {
