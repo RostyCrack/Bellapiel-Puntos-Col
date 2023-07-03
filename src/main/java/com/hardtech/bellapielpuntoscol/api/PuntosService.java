@@ -1,5 +1,4 @@
 package com.hardtech.bellapielpuntoscol.api;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
@@ -17,13 +16,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
-import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.*;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
-import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -228,7 +227,13 @@ public class PuntosService {
      */
   private void flujoAccumulation(FacturasVentaCamposLibres transaction, FacturasVenta factura,
                                  AccountResponse accountResponse, String documentNo, String documentType) {
-      AccumulationResponse accumulationResponse = null;
+
+      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+          log.info("Sending token request...");
+          this.tokenResponse = this.sendTokenRequest();
+          log.info("Token request sent successfully");
+      }
+      AccumulationResponse accumulationResponse;
       TransactionIdentifier transactionIdentifier = this.createTransactionIdentifier(factura);
       try {
           accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
@@ -280,7 +285,7 @@ public class PuntosService {
      */
 
   public AccumulationResponse sendAccumulationRequest(FacturasVentaCamposLibres transaction, AccountResponse accountResponse, FacturasVenta factura, String documentNo, String documentType, TransactionIdentifier transactionIdentifier) {
-      AccumulationResponse accumulationResponse = null;
+      AccumulationResponse accumulationResponse;
       if (accountResponse.getAllowAccrual()) {
           String jsonRequest = this.buildJsonRequest(factura, documentNo, documentType, transactionIdentifier);
 
@@ -340,18 +345,24 @@ public class PuntosService {
           this.tokenResponse = this.sendTokenRequest();
           log.info("Token request sent successfully");
       }
-
-      TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, LocalDateTime.now());
+      LocalDateTime now = LocalDateTime.now();
+      TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, now);
       String newJson = this.buildCancellationJsonRequest(originalTransactionId, newTransactionId);
       CancelationResponse cancellationResponse;
       try {
           log.info("Sending Cancellation request for transaction: " + originalTransactionId);
           cancellationResponse = this.sendCancellationRequest(newJson);
           log.info("Cancellation request sent successfully");
+          log.info("Approbation number: " + cancellationResponse.getApprobationNumber());
 
       }catch (HttpServerErrorException | TimeOutException e){
-            log.error("Error al cancelar por parte del serivdor...");
+            log.error("Error al cancelar por parte del servidor...");
+            transaction.setPuntosAcumulados(0);
             return "Error al cancelar puntos.";
+      }catch (HttpClientErrorException.NotFound e){
+          log.error("La orden no existe en Puntos Colombia...");
+          transaction.setPuntosAcumulados(0);
+          return "Orden no existente en Puntos Colombia.";
       }
       catch (Exception var6) {
           log.error("Error: " + var6.getMessage());
@@ -359,12 +370,16 @@ public class PuntosService {
           try {
               cancellationResponse = this.sendCancellationRequest(newJson);
               log.info("Cancellation request sent successfully");
-          }
+              log.info("Approbation number: " + cancellationResponse.getApprobationNumber());}
           catch (Exception e) {
               log.error("Error al cancelar puntos, no se volvera a intentar. " + var6.getMessage());
+              transaction.setPuntosAcumulados(0);
               return "Error al cancelar puntos";
           }
       }
+      transaction.setFechaAcumulacionPuntos(now);
+      transaction.setPuntosAcumulados(transaction.getPuntosAcumulados()*-1);
+      this.facturasVentaCamposLibresRepository.save(transaction);
       return "Cancelacion exitosa";
   }
 
