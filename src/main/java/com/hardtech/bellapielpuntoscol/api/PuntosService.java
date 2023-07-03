@@ -5,6 +5,7 @@ import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.AccumulationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.RequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.CommonBusinessErrorException;
+import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.DuplicateTransactionException;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
@@ -168,6 +169,7 @@ public class PuntosService {
           this.tokenResponse = this.sendTokenRequest();
           log.info("Token request sent successfully");
       }
+      log.info("Token: " + this.tokenResponse.getIsTokenExpired() + " " + this.tokenResponse.getExpiresAt());
 
       /*
       Preparacion paso 2
@@ -319,6 +321,8 @@ public class PuntosService {
                   throw new TimeOutException();
               } else if(response.getMessage().contains("COMMON_BUSINESS_ERROR")) {
                   throw new CommonBusinessErrorException();
+              }else if(response.getMessage().contains("POS_DUPLICATE_TRANSACTION")) {
+                  throw new DuplicateTransactionException();
               }
               else {
                   log.error(response.getMessage());
@@ -363,22 +367,28 @@ public class PuntosService {
           log.error("La orden no existe en Puntos Colombia...");
           transaction.setPuntosAcumulados(0);
           return "Orden no existente en Puntos Colombia.";
-      }
-      catch (Exception var6) {
-          log.error("Error: " + var6.getMessage());
-          log.info("Reintentando cancelacion puntos...");
-          try {
-              cancellationResponse = this.sendCancellationRequest(newJson);
-              log.info("Cancellation request sent successfully");
-              log.info("Approbation number: " + cancellationResponse.getApprobationNumber());}
-          catch (Exception e) {
-              log.error("Error al cancelar puntos, no se volvera a intentar. " + var6.getMessage());
-              transaction.setPuntosAcumulados(0);
-              return "Error al cancelar puntos";
+      }catch (HttpClientErrorException e){
+          if(e.getMessage().contains("POS_DUPLICATE_TRANSACTION")) {
+              return "La cancelacion ya fue procesada anteriormente.";
+          }
+          else if(e.getMessage().contains("POS_WRONG_TRANSACTION_STATUS")) {
+              return "La cancelacion ya fue procesada anteriormente.";
+          }
+          else{
+              log.error("Error: " + e.getMessage());
+              log.info("Reintentando cancelacion puntos...");
+              try {
+                  cancellationResponse = this.sendCancellationRequest(newJson);
+                  log.info("Cancellation request sent successfully");
+                  log.info("Approbation number: " + cancellationResponse.getApprobationNumber());}
+              catch (Exception ex) {
+                  log.error("Error al cancelar puntos, no se volvera a intentar. " + e.getMessage());
+                  transaction.setPuntosAcumulados(0);
+                  return "Error al cancelar puntos";
+              }
           }
       }
       transaction.setFechaAcumulacionPuntos(now);
-      transaction.setPuntosAcumulados(transaction.getPuntosAcumulados()*-1);
       this.facturasVentaCamposLibresRepository.save(transaction);
       return "Cancelacion exitosa";
   }
@@ -410,7 +420,8 @@ public class PuntosService {
       FacturasVentaCamposLibres transaction = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
       FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
 
-
+      transactionDevolucion.setPuntosAcumulados(transaction.getPuntosAcumulados()*-1);
+      facturasVentaCamposLibresRepository.save(transactionDevolucion);
       /*
        * Se realiza la cancelacion
        */
