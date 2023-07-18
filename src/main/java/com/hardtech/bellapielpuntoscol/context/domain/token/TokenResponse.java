@@ -67,4 +67,16 @@ public class TokenResponse {
     public Boolean getIsTokenExpired() {
         return !this.expiresAt.isAfter(LocalDateTime.now());
     }
+
+    @Override
+    public String toString() {
+        return "TokenResponse{accessToken='"
+                + this.accessToken + '\''
+                + ", tokenType='" + this.tokenType
+                + '\'' + ", expiresIn=" + this.expiresIn
+                + ", scope='" + this.scope + '\''
+                + ", expiresAt=" + this.expiresAt
+                + ", isTokenExpired=" + this.isTokenExpired + '}';
+
+    }
 }

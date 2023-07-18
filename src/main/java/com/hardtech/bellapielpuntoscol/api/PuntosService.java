@@ -603,5 +603,8 @@ public class PuntosService {
 
     }
 
+    public String getToken(){
+        return this.tokenResponse.toString();
+    }
 }
 

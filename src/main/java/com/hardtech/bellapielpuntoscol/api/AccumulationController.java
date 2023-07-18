@@ -32,4 +32,10 @@ public class AccumulationController {
     public String sendDevolution(@RequestParam String numSerie, @RequestParam int numFactura) {
         return this.puntosService.cancellation(numSerie, numFactura);
     }
+
+    @GetMapping({"/puntos-colombia/v1/token"})
+    public String sendTokenRequest() {
+
+        return this.puntosService.getToken();
+    }
 }
