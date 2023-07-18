@@ -9,6 +9,7 @@ import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.Du
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
+import com.hardtech.bellapielpuntoscol.context.domain.shared.DocPrinted;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import lombok.SneakyThrows;
@@ -23,11 +24,21 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.w3c.dom.Document;
 
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
@@ -114,8 +125,10 @@ public class PuntosService {
 
           return tokenResponse;
       } catch (HttpServerErrorException | HttpClientErrorException var8) {
+
           log.error(var8.getMessage());
-          throw var8;
+
+          return null;
       }
   }
 
@@ -166,7 +179,16 @@ public class PuntosService {
        */
       if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              return ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              return ("Credenciales invalidas, no se puede recibir token");
+          }
+
+
+
           log.info("Token request sent successfully");
       }
       log.info("Token: " + this.tokenResponse.getIsTokenExpired() + " " + this.tokenResponse.getExpiresAt());
@@ -605,6 +627,32 @@ public class PuntosService {
 
     public String getToken(){
         return this.tokenResponse.toString();
+    }
+
+    @SneakyThrows
+    public Map<String, String> readXML() {
+        Map<String, String> facturaMap = new HashMap<>();
+        JAXBContext jaxbContext = JAXBContext.newInstance(DocPrinted.class);
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+
+        // Get the application's directory
+        String appDirectory = System.getProperty("user.dir");
+
+
+        // Construct the XML file path
+        String xmlFilePath = Paths.get(appDirectory, "acumular-puntos.xml").toString();
+        log.info("Scanning file: " + xmlFilePath);
+        // Create a File object for the XML file
+        File xmlFile = new File(xmlFilePath);
+
+        // Unmarshal the XML file into an instance of DocPrinted class
+        DocPrinted docPrinted = (DocPrinted) unmarshaller.unmarshal(xmlFile);
+
+        log.info("numSerie: "+ docPrinted.getSerie() +" numFactura: "+ docPrinted.getNumero());
+        facturaMap.put("numSerie", docPrinted.getSerie());
+        facturaMap.put("numFactura", String.valueOf(docPrinted.getNumero()));
+
+        return facturaMap;
     }
 }
 

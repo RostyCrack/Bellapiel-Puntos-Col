@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 public class AccumulationController {
     private final PuntosService puntosService;
@@ -24,12 +26,12 @@ public class AccumulationController {
     }
 
     @GetMapping({"/puntos-colombia/v1/acumular"})
-    public String sendAccumulation(@RequestParam String numSerie, @RequestParam int numFactura) {
+    public String sendAccumulation(String numSerie, int numFactura) {
         return this.puntosService.accumulate(numSerie, numFactura);
     }
 
     @GetMapping({"/puntos-colombia/v1/cancelar"})
-    public String sendDevolution(@RequestParam String numSerie, @RequestParam int numFactura) {
+    public String sendDevolution(String numSerie, int numFactura) {
         return this.puntosService.cancellation(numSerie, numFactura);
     }
 
@@ -37,5 +39,19 @@ public class AccumulationController {
     public String sendTokenRequest() {
 
         return this.puntosService.getToken();
+    }
+
+    @GetMapping({"/puntos-colombia/v1/readXML"})
+    public String readXML() {
+        Map<String, String> facturaMap = this.puntosService.readXML();
+        String numSerie = facturaMap.get("numSerie");
+        int numFactura = Integer.parseInt(facturaMap.get("numFactura"));
+
+        if (numSerie.endsWith("Y")){
+            return this.sendDevolution(numSerie, numFactura);
+        }
+        else{
+            return this.sendAccumulation(numSerie, numFactura);
+        }
     }
 }
