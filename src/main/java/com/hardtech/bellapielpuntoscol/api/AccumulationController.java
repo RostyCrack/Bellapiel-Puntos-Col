@@ -36,8 +36,7 @@ public class AccumulationController {
 
     @GetMapping({"/puntos-colombia/v1/token"})
     public String sendTokenRequest() {
-
-        return this.puntosService.getToken();
+        return this.puntosService.sendTokenRequest().toString();
     }
 
     @GetMapping({"/puntos-colombia/v1/readXML"})

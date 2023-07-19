@@ -13,11 +13,16 @@ import com.hardtech.bellapielpuntoscol.context.domain.shared.DocPrinted;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import lombok.SneakyThrows;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -26,11 +31,16 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 
+import javax.net.ssl.SSLContext;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.file.Paths;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -66,6 +76,8 @@ public class PuntosService {
   private String versionAccumulation;
   @Value("${puntos-colombia.version-cancellation}")
   private String versionCancellation;
+
+
   private TokenResponse tokenResponse;
   private final ClientesRepository clientesRepository;
   private final FacturasVentaRepository facturasVentaRepository;
@@ -102,6 +114,8 @@ public class PuntosService {
    */
   public TokenResponse sendTokenRequest() {
       TokenResponse tokenResponse = null;
+
+
       RestTemplate restTemplate = buildRestTemplate();
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -126,7 +140,7 @@ public class PuntosService {
 
           log.error(var8.getMessage());
 
-          return null;
+          throw var8;
       }
   }
 
@@ -184,9 +198,6 @@ public class PuntosService {
           }catch (HttpClientErrorException response) {
               return ("Credenciales invalidas, no se puede recibir token");
           }
-
-
-
           log.info("Token request sent successfully");
       }
       log.info("Token: " + this.tokenResponse.getIsTokenExpired() + " " + this.tokenResponse.getExpiresAt());
@@ -252,8 +263,13 @@ public class PuntosService {
 
       if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
-          log.info("Token request sent successfully");
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              throw new RuntimeException ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              throw new RuntimeException ("Credenciales invalidas, no se puede recibir token");
+          }
       }
       AccumulationResponse accumulationResponse;
       TransactionIdentifier transactionIdentifier = this.createTransactionIdentifier(factura);
@@ -366,8 +382,13 @@ public class PuntosService {
 
       if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
-          log.info("Token request sent successfully");
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              return ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              return ("Credenciales invalidas, no se puede recibir token");
+          }
       }
       LocalDateTime now = LocalDateTime.now();
       TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, now);
@@ -595,12 +616,46 @@ public class PuntosService {
      * Metodo que se encarga de crear la RestTemplate con timeoute de 13 segundos
      * @return RestTemplate
      */
-  private RestTemplate buildRestTemplate() {
-      return (new RestTemplateBuilder())
-              .setConnectTimeout(Duration.ofSeconds(13))
-              .setReadTimeout(Duration.ofSeconds(13))
-              .build();
-  }
+    private RestTemplate buildRestTemplate() {
+        String p12Password = "212738A9-9F64-434E-8D5C-5E0C341E2C60";
+        String appDirectory = System.getProperty("user.dir");
+        String p12FilePath = appDirectory + "/src/main/resources/pcobella piel-p384sv_key.p12";
+
+        try {
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            try (FileInputStream inputStream = new FileInputStream(p12FilePath)) {
+                keyStore.load(inputStream, p12Password.toCharArray());
+            }
+
+            String alias = keyStore.aliases().nextElement();
+            X509Certificate certificate = (X509Certificate) keyStore.getCertificate(alias);
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, p12Password.toCharArray());
+
+            keyStore.setKeyEntry("privateKeyAlias", privateKey, p12Password.toCharArray(), new X509Certificate[]{certificate});
+
+            SSLContext sslContext = SSLContextBuilder.create()
+                    .loadKeyMaterial(keyStore, p12Password.toCharArray())
+                    .loadTrustMaterial(new TrustSelfSignedStrategy())
+                    .build();
+
+            CloseableHttpClient httpClient = HttpClients.custom()
+                    .setSSLContext(sslContext)
+                    .build();
+
+            HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
+
+            RestTemplate restTemplate = (new RestTemplateBuilder())
+                    .setConnectTimeout(Duration.ofSeconds(13))
+                    .setReadTimeout(Duration.ofSeconds(13))
+                    .build();
+
+            restTemplate.setRequestFactory(requestFactory);
+
+            return restTemplate;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to build the custom RestTemplate with SSL.", e);
+        }
+    }
 
     /**
      * Metodo para acumular transacciones pendientes
@@ -621,10 +676,6 @@ public class PuntosService {
             }
         }
 
-    }
-
-    public String getToken(){
-        return this.tokenResponse.toString();
     }
 
     @SneakyThrows
