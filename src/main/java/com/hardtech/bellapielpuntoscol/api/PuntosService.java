@@ -37,6 +37,7 @@ import javax.xml.bind.Unmarshaller;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.PrivateKey;
@@ -619,11 +620,11 @@ public class PuntosService {
     private RestTemplate buildRestTemplate() {
         String p12Password = "212738A9-9F64-434E-8D5C-5E0C341E2C60";
         String appDirectory = System.getProperty("user.dir");
-        String p12FilePath = appDirectory + "/src/main/resources/pcobella piel-p384sv_key.p12";
 
+        ClassLoader classLoader = getClass().getClassLoader();
         try {
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            try (FileInputStream inputStream = new FileInputStream(p12FilePath)) {
+            try (InputStream inputStream = classLoader.getResourceAsStream("pcobella piel-p384sv_key.p12")) {
                 keyStore.load(inputStream, p12Password.toCharArray());
             }
 
