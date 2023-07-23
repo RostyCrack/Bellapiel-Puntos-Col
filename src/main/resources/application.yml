@@ -32,7 +32,7 @@ server:
   port: 8091
 
 puntos-colombia:
-  url: https://apinp.puntoscolombia.com
+  url: https://api.puntoscolombia.com
   version-token: v2
   version-account: v1
   version-accumulation: v1
@@ -43,8 +43,12 @@ url:
     ca-partnercode: 830137461
     x-remote-ip: 127.0.0.1
   grant-type: client_credentials
-  client-id: 629a27ceada583648ac7625a45e899b19f  #PROD: d086a9ea188b6a2d59ac035c58c5519d75 629a27ceada583648ac7625a45e899b19f
-  client-secret: 363ee7a52b7b4a4292fb6dca6fb13262 #PROD: edf01ccf59e79a8de9770cf18510d5e6 363ee7a52b7b4a4292fb6dca6fb13262
+  client-id: d086a9ea188b6a2d59ac035c58c5519d75  #PROD: d086a9ea188b6a2d59ac035c58c5519d75 629a27ceada583648ac7625a45e899b19f
+  client-secret: edf01ccf59e79a8de9770cf18510d5e6 #PROD: edf01ccf59e79a8de9770cf18510d5e6 363ee7a52b7b4a4292fb6dca6fb13262
   locationCode: BPCC
+
+wompi:
+  url: https://sandbox.wompi.co/v1/payment_links
+  authorization: prv_test_hjo6BKEH3Oknxeycat9R24wrveKGNejt
 
 

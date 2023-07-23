@@ -91,6 +91,13 @@
             <version>RELEASE</version>
             <scope>compile</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>9.8.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
