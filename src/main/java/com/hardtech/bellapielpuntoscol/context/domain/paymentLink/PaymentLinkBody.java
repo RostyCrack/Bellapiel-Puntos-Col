@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -33,4 +35,7 @@ public class PaymentLinkBody{
 
 	@JsonProperty("currency")
 	private String currency;
+
+	@JsonProperty("expires_at")
+	private LocalDateTime expirationDate;
 }

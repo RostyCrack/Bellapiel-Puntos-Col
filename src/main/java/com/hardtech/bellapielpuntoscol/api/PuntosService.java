@@ -1,4 +1,5 @@
 package com.hardtech.bellapielpuntoscol.api;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
@@ -9,7 +10,6 @@ import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.Du
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
-import com.hardtech.bellapielpuntoscol.context.domain.shared.DocPrinted;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import lombok.SneakyThrows;
@@ -30,24 +30,15 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-
 import javax.net.ssl.SSLContext;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.Unmarshaller;
-
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 @Service
@@ -679,30 +670,6 @@ public class PuntosService {
 
     }
 
-    @SneakyThrows
-    public Map<String, String> readXML() {
-        Map<String, String> facturaMap = new HashMap<>();
-        JAXBContext jaxbContext = JAXBContext.newInstance(DocPrinted.class);
-        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 
-        // Get the application's directory
-        String appDirectory = System.getProperty("user.dir");
-
-
-        // Construct the XML file path
-        String xmlFilePath = Paths.get(appDirectory, "acumular-puntos.xml").toString();
-        log.info("Scanning file: " + xmlFilePath);
-        // Create a File object for the XML file
-        File xmlFile = new File(xmlFilePath);
-
-        // Unmarshal the XML file into an instance of DocPrinted class
-        DocPrinted docPrinted = (DocPrinted) unmarshaller.unmarshal(xmlFile);
-
-        log.info("numSerie: "+ docPrinted.getSerie() +" numFactura: "+ docPrinted.getNumero());
-        facturaMap.put("numSerie", docPrinted.getSerie());
-        facturaMap.put("numFactura", String.valueOf(docPrinted.getNumero()));
-
-        return facturaMap;
-    }
 }
 

@@ -5,6 +5,8 @@ import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.CustomerData;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.CustomerReferencesItem;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkBody;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkResponse;
+import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.exceptions.PedidoNotFoundException;
+import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import lombok.SneakyThrows;
@@ -14,6 +16,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,10 +29,19 @@ public class PaymentLinkService {
 
     @Value("${wompi.authorization}")
     private String authorization;
-
-    private static final String ACCOUNT_SID =
-            "ACffa02de3755346b9cb012611c27ab587";
+    private static final String ACCOUNT_SID = "ACffa02de3755346b9cb012611c27ab587";
     private static final String AUTH_TOKEN = "b52ae41971036ecf43576b4aa463ef6b";
+
+    private final PedVentaLinRepository pedVentaLinRepository;
+
+    private final PedVentaCabRepository pedVentaCabRepository;
+
+    private final ClientesRepository clientesRepository;
+    public PaymentLinkService(PedVentaLinRepository pedVentaLinRepository, PedVentaCabRepository pedVentaCabRepository, ClientesRepository clientesRepository){
+        this.pedVentaLinRepository = pedVentaLinRepository;
+        this.pedVentaCabRepository = pedVentaCabRepository;
+        this.clientesRepository = clientesRepository;
+    }
 
 
     public PaymentLinkBody createPaymentLinkBody(String name, String description, boolean singleUse, boolean collectShipping, String currency, int amountInCents, String vendorCode){
@@ -40,8 +52,9 @@ public class PaymentLinkService {
         customerReferencesItemList.add(customerReferencesItem);
 
         CustomerData customerData = new CustomerData(customerReferencesItemList);
-        return new PaymentLinkBody(collectShipping, name, customerData, description, singleUse, amountInCents, currency);
+        return new PaymentLinkBody(collectShipping, name, customerData, description, singleUse, amountInCents, currency, LocalDateTime.now().plusHours(1));
     }
+
 
     @SneakyThrows
     public PaymentLinkResponse sendPaymentLinkRequest(PaymentLinkBody paymentLinkBody) {
@@ -73,16 +86,107 @@ public class PaymentLinkService {
         return responseBody;
     }
 
-    public void sendSMS(String paymentLink) {
-
+    public void sendSMS(String paymentLink, String phone) {
+        log.info("Enviando SMS");
         Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
         Message message = Message.creator(
-                new com.twilio.type.PhoneNumber("+573046136949"),
+                new com.twilio.type.PhoneNumber("+57"+phone),
                 new com.twilio.type.PhoneNumber("+12343015274"),
                 "Este es tu link de pago: "+paymentLink)
                 .create();
     }
 
+    public List<PedVentaLin> retrievePedido(String numSerie, int numPedido){
 
+        log.info("Consultando pedido: "+numSerie+"-"+numPedido);
+
+        try{
+            List<PedVentaLin> pedidoArticulos = pedVentaLinRepository.findDistinctByNumSerieAndNumPedido(numSerie, numPedido);
+            for (PedVentaLin pedidioArticulo: pedidoArticulos) {
+                log.info("Articulo: " + pedidioArticulo.toString());
+            }
+            return pedidoArticulos;
+        }catch (Exception e){
+            log.error("Error al leer la base de datos: "+e.getMessage());
+            throw new PedidoNotFoundException();
+        }
+    }
+
+    public PaymentLinkBody createPaymentLinkBody(List<PedVentaLin> articulos, PedVentaCab pedido){
+        log.info("Creando peticion de pago");
+        String numSerie = pedido.getNumSerie();
+        int numPedido = pedido.getNumPedido();
+
+        PaymentLinkBody body = new PaymentLinkBody();
+        body.setCurrency("COP");
+
+        body.setName("Pedido: "+ numSerie+"-"+ numPedido);
+        StringBuilder description = new StringBuilder();
+
+        for (PedVentaLin pedidoArticulo: articulos) {
+            description.append("•");
+            description.append(pedidoArticulo.getDescripcion());
+            description.append(System.getProperty("line.separator"));
+        }
+        log.info("Descripcion: "+ description);
+        body.setDescription(description.toString());
+
+        int totalInCents = this.retrieveTotalCostInCents(pedido);
+        body.setAmountInCents(totalInCents);
+
+        body.setSingleUse(true);
+
+        body.setCollectShipping(false);
+
+        CustomerReferencesItem codVendedorField = new CustomerReferencesItem();
+        codVendedorField.setLabel(articulos.get(0).getCodVendedor());
+        codVendedorField.setRequired(false);
+
+        CustomerReferencesItem numPedidoField = new CustomerReferencesItem();
+        numPedidoField.setLabel(numSerie+"-"+numPedido);
+
+
+        List<CustomerReferencesItem> customerReferencesItemList = new ArrayList<>();
+        customerReferencesItemList.add(codVendedorField);
+        customerReferencesItemList.add(numPedidoField);
+
+        CustomerData camposPersonalizados = new CustomerData(customerReferencesItemList);
+
+        body.setCustomerData(camposPersonalizados);
+        return body;
+    }
+
+    public int retrieveTotalCostInCents(PedVentaCab pedido){
+        return (int) (pedido.getTotNeto()*100);
+    }
+
+    public String retrievePhoneNumber(PedVentaCab pedido) {
+        log.info("Consultando numero de telefono");
+        int codCliente = pedido.getCodCliente();
+        Clientes cliente = clientesRepository.findByCodCliente(codCliente);
+        String telefono = cliente.getTelefono();
+
+        String phoneNumberWithOnlyNumbers = telefono.replaceAll("\\D", "");
+
+        if (phoneNumberWithOnlyNumbers.length() != 10) {
+            throw new IllegalArgumentException("Numero de telefono invalido");
+        }
+        return phoneNumberWithOnlyNumbers;
+    }
+
+    public String flujoPaymentlink(String numSerie, int numPedido){
+
+        List<PedVentaLin> articulos = retrievePedido(numSerie, numPedido);
+        PedVentaCab pedido = pedVentaCabRepository.findByNumSerieAndNumPedido(numSerie, numPedido);
+        String phoneNumber = retrievePhoneNumber(pedido);
+
+        PaymentLinkBody paymentLinkBody = createPaymentLinkBody(articulos, pedido);
+        PaymentLinkResponse paymentLinkResponse = sendPaymentLinkRequest(paymentLinkBody);
+
+        String paymentLink = "https://checkout.wompi.co/l/"+paymentLinkResponse.getData().getId();
+        sendSMS(paymentLink, phoneNumber);
+
+        return paymentLink;
+    }
 
 }

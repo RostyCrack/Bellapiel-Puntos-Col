@@ -5,6 +5,9 @@
 
 package com.hardtech.bellapielpuntoscol.infrastructure;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -12,6 +15,8 @@ import javax.persistence.Id;
 @Entity(
         name = "CLIENTES"
 )
+@Getter
+@Setter
 public class Clientes {
     @Id
     @Column(
@@ -23,22 +28,10 @@ public class Clientes {
     )
     private String documentNo;
 
+    @Column(name = "TELEFONO1")
+    private String telefono;
+
     public Clientes() {
     }
 
-    public int getCodCliente() {
-        return this.codCliente;
-    }
-
-    public String getDocumentNo() {
-        return this.documentNo;
-    }
-
-    public void setCodCliente(final int codCliente) {
-        this.codCliente = codCliente;
-    }
-
-    public void setDocumentNo(final String documentNo) {
-        this.documentNo = documentNo;
-    }
 }
