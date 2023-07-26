@@ -4,6 +4,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.AccumulationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.RequestBody;
+import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.AccountNotAllowedException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.CommonBusinessErrorException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.DuplicateTransactionException;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
@@ -190,7 +191,7 @@ public class PuntosService {
       /*
          * PASO 1: Si el token no existe o esta expirado, se envia una nueva peticion de token
        */
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
@@ -262,7 +263,7 @@ public class PuntosService {
   private void flujoAccumulation(FacturasVentaCamposLibres transaction, FacturasVenta factura,
                                  AccountResponse accountResponse, String documentNo, String documentType) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
@@ -277,7 +278,7 @@ public class PuntosService {
       try {
           accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
       }
-      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException e){
+      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException | AccountNotAllowedException e ){
           throw e;
       }
       catch (Exception e){
@@ -369,7 +370,7 @@ public class PuntosService {
       } else {
           transaction.setMensajePuntos("Cuenta no permitada para acumular puntos");
           this.facturasVentaCamposLibresRepository.save(transaction);
-          throw new RuntimeException("Contactese con Puntos Colombia");
+          throw new AccountNotAllowedException();
       }
   }
 
@@ -381,7 +382,7 @@ public class PuntosService {
      */
   public String flujoCancellation(TransactionIdentifier originalTransactionId, FacturasVentaCamposLibres transaction, FacturasVenta facturaDevolucion) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
