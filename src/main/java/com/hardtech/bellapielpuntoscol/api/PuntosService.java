@@ -5,18 +5,25 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.AccumulationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.RequestBody;
+import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.AccountNotAllowedException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.CommonBusinessErrorException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.DuplicateTransactionException;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
+import com.hardtech.bellapielpuntoscol.context.domain.shared.DocPrinted;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.Unmarshaller;
 import lombok.SneakyThrows;
-import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.ssl.SSLContexts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,14 +38,18 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.net.ssl.SSLContext;
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
@@ -181,7 +192,7 @@ public class PuntosService {
       /*
          * PASO 1: Si el token no existe o esta expirado, se envia una nueva peticion de token
        */
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
@@ -253,7 +264,7 @@ public class PuntosService {
   private void flujoAccumulation(FacturasVentaCamposLibres transaction, FacturasVenta factura,
                                  AccountResponse accountResponse, String documentNo, String documentType) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
@@ -268,7 +279,7 @@ public class PuntosService {
       try {
           accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
       }
-      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException e){
+      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException | AccountNotAllowedException e ){
           throw e;
       }
       catch (Exception e){
@@ -331,7 +342,6 @@ public class PuntosService {
           try {
               ResponseEntity<AccumulationResponse> response = restTemplate
                       .exchange(requestUrl, HttpMethod.POST, new HttpEntity<>(jsonRequest, headers), AccumulationResponse.class);
-              response.getBody();
               accumulationResponse = response.getBody();
               transaction.setFechaAcumulacionPuntos(LocalDateTime.parse(transactionIdentifier.getTransactionDate()));
               this.facturasVentaCamposLibresRepository.save(transaction);
@@ -360,7 +370,7 @@ public class PuntosService {
       } else {
           transaction.setMensajePuntos("Cuenta no permitada para acumular puntos");
           this.facturasVentaCamposLibresRepository.save(transaction);
-          throw new RuntimeException("Contactese con Puntos Colombia");
+          throw new AccountNotAllowedException();
       }
   }
 
@@ -372,7 +382,7 @@ public class PuntosService {
      */
   public String flujoCancellation(TransactionIdentifier originalTransactionId, FacturasVentaCamposLibres transaction, FacturasVenta facturaDevolucion) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
           try{
               this.tokenResponse = this.sendTokenRequest();
@@ -608,14 +618,15 @@ public class PuntosService {
      * Metodo que se encarga de crear la RestTemplate con timeoute de 13 segundos
      * @return RestTemplate
      */
+    @SneakyThrows
     private RestTemplate buildRestTemplate() {
         String p12Password = "212738A9-9F64-434E-8D5C-5E0C341E2C60";
         String appDirectory = System.getProperty("user.dir");
+        String p12FilePath = appDirectory + "/pcobella piel-p384sv_key.p12";
 
-        ClassLoader classLoader = getClass().getClassLoader();
         try {
             KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            try (InputStream inputStream = classLoader.getResourceAsStream("pcobella piel-p384sv_key.p12")) {
+            try (FileInputStream inputStream = new FileInputStream(p12FilePath)) {
                 keyStore.load(inputStream, p12Password.toCharArray());
             }
 
@@ -625,25 +636,35 @@ public class PuntosService {
 
             keyStore.setKeyEntry("privateKeyAlias", privateKey, p12Password.toCharArray(), new X509Certificate[]{certificate});
 
-            SSLContext sslContext = SSLContextBuilder.create()
+            SSLContext sslcontext = SSLContexts.custom()
+                    .setProtocol("TLSv1.2")
                     .loadKeyMaterial(keyStore, p12Password.toCharArray())
-                    .loadTrustMaterial(new TrustSelfSignedStrategy())
+                    .loadTrustMaterial(null, new TrustAllStrategy())
                     .build();
 
-            CloseableHttpClient httpClient = HttpClients.custom()
-                    .setSSLContext(sslContext)
+            log.info(sslcontext.getProtocol());
+
+            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslcontext);
+
+            HttpClientConnectionManager cm = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(sslSocketFactory)
+                    .build();
+
+            CloseableHttpClient httpClient =  HttpClients.custom()
+                    .setConnectionManager(cm)
+                    .evictExpiredConnections()
                     .build();
 
             HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
 
-            RestTemplate restTemplate = (new RestTemplateBuilder())
+
+
+            return (new RestTemplateBuilder())
+                    .requestFactory(() -> requestFactory)
                     .setConnectTimeout(Duration.ofSeconds(13))
-                    .setReadTimeout(Duration.ofSeconds(13))
                     .build();
 
-            restTemplate.setRequestFactory(requestFactory);
 
-            return restTemplate;
         } catch (Exception e) {
             throw new RuntimeException("Failed to build the custom RestTemplate with SSL.", e);
         }
@@ -670,6 +691,32 @@ public class PuntosService {
 
     }
 
+    @SneakyThrows
+    public Map<String, String> readXML() {
+        Map<String, String> facturaMap = new HashMap<>();
+        JAXBContext jaxbContext = JAXBContext.newInstance(DocPrinted.class);
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
 
+        // Get the application's directory
+        String appDirectory = System.getProperty("user.dir");
+
+
+        // Construct the XML file path
+        String xmlFilePath = Paths.get(appDirectory, "acumular-puntos.xml").toString();
+        log.info("Scanning file: " + xmlFilePath);
+        // Create a File object for the XML file
+        File xmlFile = new File(xmlFilePath);
+
+        // Unmarshal the XML file into an instance of DocPrinted class
+        DocPrinted docPrinted = (DocPrinted) unmarshaller.unmarshal(xmlFile);
+
+        log.info("numSerie: "+ docPrinted.getSerie() +" numFactura: "+ docPrinted.getNumero());
+        facturaMap.put("numSerie", docPrinted.getSerie());
+        facturaMap.put("numFactura", String.valueOf(docPrinted.getNumero()));
+
+        return facturaMap;
+    }
 }
+
+
 

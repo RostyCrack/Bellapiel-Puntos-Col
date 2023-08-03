@@ -6,6 +6,7 @@
 package com.hardtech.bellapielpuntoscol.api;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.xml.bind.JAXBException;
@@ -33,7 +34,7 @@ public class AccumulationController {
     }
 
     @GetMapping({"/puntos-colombia/v1/cancelar"})
-    public String sendDevolution(String numSerie, int numFactura) {
+    public String sendDevolution(@RequestParam String numSerie, @RequestParam int numFactura) {
         return this.puntosService.cancellation(numSerie, numFactura);
     }
 
