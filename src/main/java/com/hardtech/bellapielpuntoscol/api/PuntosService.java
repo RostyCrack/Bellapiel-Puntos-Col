@@ -392,6 +392,7 @@ public class PuntosService {
               return ("Credenciales invalidas, no se puede recibir token");
           }
       }
+
       LocalDateTime now = LocalDateTime.now();
       TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, now);
       String newJson = this.buildCancellationJsonRequest(originalTransactionId, newTransactionId);
@@ -474,6 +475,7 @@ public class PuntosService {
       log.info("Creating transactionId...: ");
       TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos());
       return this.flujoCancellation(oldTransactionId, transactionDevolucion, devolucionFactura);
+
   }
 
 
@@ -688,33 +690,6 @@ public class PuntosService {
                 accumulate(transaction.getNumSerie(), transaction.getNumFactura());
             }
         }
-
-    }
-
-    @SneakyThrows
-    public Map<String, String> readXML() {
-        Map<String, String> facturaMap = new HashMap<>();
-        JAXBContext jaxbContext = JAXBContext.newInstance(DocPrinted.class);
-        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-
-        // Get the application's directory
-        String appDirectory = System.getProperty("user.dir");
-
-
-        // Construct the XML file path
-        String xmlFilePath = Paths.get(appDirectory, "acumular-puntos.xml").toString();
-        log.info("Scanning file: " + xmlFilePath);
-        // Create a File object for the XML file
-        File xmlFile = new File(xmlFilePath);
-
-        // Unmarshal the XML file into an instance of DocPrinted class
-        DocPrinted docPrinted = (DocPrinted) unmarshaller.unmarshal(xmlFile);
-
-        log.info("numSerie: "+ docPrinted.getSerie() +" numFactura: "+ docPrinted.getNumero());
-        facturaMap.put("numSerie", docPrinted.getSerie());
-        facturaMap.put("numFactura", String.valueOf(docPrinted.getNumero()));
-
-        return facturaMap;
     }
 }
 

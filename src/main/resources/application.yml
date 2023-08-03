@@ -26,7 +26,7 @@ spring:
 
 logging:
   file:
-    name: D:\ICG\puntoscol\bellapiel-puntos-col.log
+    name: log/bellapiel-puntoscol.log
 
 server:
   port: 8091
