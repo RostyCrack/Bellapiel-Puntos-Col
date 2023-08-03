@@ -11,11 +11,8 @@ import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.Du
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
-import com.hardtech.bellapielpuntoscol.context.domain.shared.DocPrinted;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
-import jakarta.xml.bind.JAXBContext;
-import jakarta.xml.bind.Unmarshaller;
 import lombok.SneakyThrows;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -38,18 +35,14 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.net.ssl.SSLContext;
-import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 @Service
@@ -643,8 +636,6 @@ public class PuntosService {
                     .loadKeyMaterial(keyStore, p12Password.toCharArray())
                     .loadTrustMaterial(null, new TrustAllStrategy())
                     .build();
-
-            log.info(sslcontext.getProtocol());
 
             SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslcontext);
 

@@ -40,7 +40,7 @@ public class PaymentLinkController {
     @GetMapping({"/wompi/v1/payment-link"})
     public String paymentLink(){
         try {
-            Map<String, String> pedidoMap = this.xmlService.readXML("payment-link.xml");
+            Map<String, String> pedidoMap = this.xmlService.readPedidoXML("payment-link.xml");
             String numSerie = pedidoMap.get("numSerie");
             int numPedido = Integer.parseInt(pedidoMap.get("numFactura"));
             return this.paymentlink(numSerie, numPedido);
