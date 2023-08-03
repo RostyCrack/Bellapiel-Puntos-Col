@@ -5,10 +5,10 @@
 
 package com.hardtech.bellapielpuntoscol.infrastructure;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.IdClass;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 
 @Entity(
         name = "ALBVENTALIN"

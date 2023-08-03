@@ -1,6 +1,6 @@
 package com.hardtech.bellapielpuntoscol.infrastructure;
 
-import javax.persistence.IdClass;
+import jakarta.persistence.IdClass;
 import lombok.Getter;
 import lombok.Setter;
 

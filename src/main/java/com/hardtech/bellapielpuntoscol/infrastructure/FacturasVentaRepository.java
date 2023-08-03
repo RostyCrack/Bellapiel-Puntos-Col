@@ -12,5 +12,4 @@ import org.springframework.stereotype.Repository;
 public interface FacturasVentaRepository extends JpaRepository<FacturasVenta, String> {
     FacturasVenta findByNumFacturaAndNumSerie(int numFactura, String numSerie);
 
-    FacturasVenta save(FacturasVenta facturasVenta);
 }
