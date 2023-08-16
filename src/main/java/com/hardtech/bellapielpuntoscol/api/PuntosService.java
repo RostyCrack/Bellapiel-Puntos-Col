@@ -331,7 +331,7 @@ public class PuntosService {
           headers.setBearerAuth(this.tokenResponse.getAccessToken());
           headers.set("CA-CHANNEL", this.caChannel);
           headers.set("X-REMOTE-IP", this.xRemoteIp);
-
+          headers.setContentType(MediaType.APPLICATION_JSON);
           try {
               ResponseEntity<AccumulationResponse> response = restTemplate
                       .exchange(requestUrl, HttpMethod.POST, new HttpEntity<>(jsonRequest, headers), AccumulationResponse.class);
@@ -484,6 +484,7 @@ public class PuntosService {
       headers.setBearerAuth(this.tokenResponse.getAccessToken());
       headers.set("CA-CHANNEL", this.caChannel);
       headers.set("X-REMOTE-IP", this.xRemoteIp);
+      headers.setContentType(MediaType.APPLICATION_JSON);
 
       try {
           ResponseEntity<CancelationResponse> response = restTemplate
