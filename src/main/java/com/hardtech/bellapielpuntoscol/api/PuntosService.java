@@ -478,7 +478,7 @@ public class PuntosService {
      * @return Respuesta de la peticion de cancelacion
      */
   public CancelationResponse sendCancellationRequest(String newJson) {
-      RestTemplate restTemplate = new RestTemplateBuilder().setConnectTimeout(Duration.ofSeconds(13L)).setReadTimeout(Duration.ofSeconds(13L)).build();
+      RestTemplate restTemplate = buildRestTemplate();
       String requestUrl = this.url + "/pos-management/" + this.versionCancellation + "/transactions/cancel";
       HttpHeaders headers = new HttpHeaders();
       headers.setBearerAuth(this.tokenResponse.getAccessToken());

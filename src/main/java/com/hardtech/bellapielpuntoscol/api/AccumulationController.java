@@ -29,7 +29,7 @@ public class AccumulationController {
     }
 
     @GetMapping({"/puntos-colombia/v1/acumular"})
-    public String sendAccumulation(String numSerie, int numFactura) {
+    public String sendAccumulation(@RequestParam String numSerie, @RequestParam int numFactura) {
         return this.puntosService.accumulate(numSerie, numFactura);
     }
 
