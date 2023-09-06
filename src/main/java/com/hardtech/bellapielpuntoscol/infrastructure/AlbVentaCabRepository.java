@@ -8,5 +8,6 @@ package com.hardtech.bellapielpuntoscol.infrastructure;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AlbVentaCabRepository extends JpaRepository<AlbVentaCab, AlbVentaLinId> {
-    AlbVentaCab findByNumSerieAndNumAlbaran(String numSerie, int numAlbaran);
+
+    AlbVentaCab findByNumSerieAndNumFactura(String numSerie, int numFactura);
 }

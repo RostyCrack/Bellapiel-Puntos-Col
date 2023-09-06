@@ -9,11 +9,17 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity(
         name = "ALBVENTACAB"
 )
 @IdClass(AlbVentaLinId.class)
+@Getter
+@Setter
+@NoArgsConstructor
 public class AlbVentaCab {
     @Id
     @Column(
@@ -30,30 +36,4 @@ public class AlbVentaCab {
     )
     private int numFactura;
 
-    public AlbVentaCab() {
-    }
-
-    public String getNumSerie() {
-        return this.numSerie;
-    }
-
-    public int getNumAlbaran() {
-        return this.numAlbaran;
-    }
-
-    public int getNumFactura() {
-        return this.numFactura;
-    }
-
-    public void setNumSerie(final String numSerie) {
-        this.numSerie = numSerie;
-    }
-
-    public void setNumAlbaran(final int numAlbaran) {
-        this.numAlbaran = numAlbaran;
-    }
-
-    public void setNumFactura(final int numFactura) {
-        this.numFactura = numFactura;
-    }
 }

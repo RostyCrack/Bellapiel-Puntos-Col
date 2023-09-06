@@ -11,6 +11,7 @@ import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.Du
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
+import com.hardtech.bellapielpuntoscol.context.domain.shared.ExpiredCertificateException;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import lombok.SneakyThrows;
@@ -42,6 +43,8 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 
 
@@ -81,8 +84,9 @@ public class PuntosService {
   private final FacturasVentaSeriesRepository facturasVentaSeriesRepository;
   private final FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository;
   private final AlbVentaLinRepository albVentaLinRepository;
-  private final AlbVentaCabRepository albVentaCabRepository;
   private final TesoreriaRepository tesoreriaRepository;
+
+  private final AlbVentaCabRepository albVentaCabRepository;
 
 
   public PuntosService(FacturasVentaRepository facturasVentaRepository,
@@ -91,16 +95,15 @@ public class PuntosService {
                        ClientesRepository clientesRepository,
                        FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
                        AlbVentaLinRepository albVentaLinRepository,
-                       AlbVentaCabRepository albVentaCabRepository,
-                       TesoreriaRepository tesoreriaRepository) {
+                       TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository) {
       this.facturasVentaRepository = facturasVentaRepository;
       this.clienteCamposLibresRepository = clienteCamposLibresRepository;
       this.facturasVentaSeriesRepository = facturasVentaSeriesRepository;
       this.clientesRepository = clientesRepository;
       this.facturasVentaCamposLibresRepository = facturasVentaCamposLibresRepository;
       this.albVentaLinRepository = albVentaLinRepository;
-      this.albVentaCabRepository = albVentaCabRepository;
       this.tesoreriaRepository = tesoreriaRepository;
+      this.albVentaCabRepository = albVentaCabRepository;
   }
 
   /**
@@ -433,11 +436,13 @@ public class PuntosService {
     /**
      * Metodo que se encarga de preparar la peticion de cancelacion manual de puntos a Puntos Colombia
      * @param numSerie Numero de serie de la factura
-     * @param numAlbaran Numero de devolucion de la factura
+     * @param numFactura Numero de devolucion de la factura
      */
-  public String cancellation(String numSerie, int numAlbaran) {
-      log.info("Fetching transaction: " + numSerie + " " + numAlbaran + "...");
+  public String cancellation(String numSerie, int numFactura) {
+      log.info("Fetching transaction: " + numSerie + " " + numFactura + "...");
 
+      AlbVentaCab devolucionAlbaran = this.albVentaCabRepository.findByNumSerieAndNumFactura(numSerie, numFactura);
+      int numAlbaran = devolucionAlbaran.getNumAlbaran();
       /*
         * Se obtiene la factura original a partir de la devolución
        */
@@ -446,11 +451,8 @@ public class PuntosService {
       numSerieFactura = numSerieFactura.substring(1);
       String[] parts = numSerieFactura.split("-");
       String orderNumSerie = parts[0];
-      int orderNumFactura = Integer.parseInt(parts[1]);
-      AlbVentaCab albVentaCab = this.albVentaCabRepository.findByNumSerieAndNumAlbaran(orderNumSerie, orderNumFactura);
-      int originalNumFac = albVentaCab.getNumFactura();
+      int originalNumFac = Integer.parseInt(parts[1]);
       log.info("Orden a devolver: " + orderNumSerie + " " + originalNumFac);
-
       /*
           * Se populan los campos de la devolucion
        */
@@ -565,7 +567,7 @@ public class PuntosService {
       transactionIdentifier.setCashierId(factura.getCodVendedor());
       transactionIdentifier.setLocationCode(this.locationCode);
       LocalDateTime date = factura.getFecha().with(LocalTime.from(factura.getHora()));
-      transactionIdentifier.setTransactionDate(String.valueOf(date));
+      transactionIdentifier.setTransactionDate(date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
       return transactionIdentifier;
   }
@@ -628,6 +630,9 @@ public class PuntosService {
 
             String alias = keyStore.aliases().nextElement();
             X509Certificate certificate = (X509Certificate) keyStore.getCertificate(alias);
+            if(certificate.getNotAfter().before(new Date())){
+                throw new ExpiredCertificateException(certificate.getNotAfter().toString());
+            }
             PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, p12Password.toCharArray());
 
             keyStore.setKeyEntry("privateKeyAlias", privateKey, p12Password.toCharArray(), new X509Certificate[]{certificate});
@@ -659,9 +664,14 @@ public class PuntosService {
                     .build();
 
 
-        } catch (Exception e) {
+        }
+        catch (ExpiredCertificateException e){
+            throw e;
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to build the custom RestTemplate with SSL.", e);
         }
+
     }
 
     /**
@@ -683,6 +693,8 @@ public class PuntosService {
             }
         }
     }
+
+
 }
 
 
