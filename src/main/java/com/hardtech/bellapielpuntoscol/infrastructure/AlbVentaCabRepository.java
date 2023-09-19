@@ -10,4 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AlbVentaCabRepository extends JpaRepository<AlbVentaCab, AlbVentaLinId> {
 
     AlbVentaCab findByNumSerieAndNumFactura(String numSerie, int numFactura);
+
+    AlbVentaCab findByNumSerieAndNumAlbaran(String numSerie, int numAlbaran);
+
 }

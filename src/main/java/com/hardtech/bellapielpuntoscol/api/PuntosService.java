@@ -447,11 +447,16 @@ public class PuntosService {
         * Se obtiene la factura original a partir de la devolución
        */
       AlbVentaLin devolucion = this.albVentaLinRepository.findByNumAlbaranAndNumSerie(numAlbaran, numSerie);
-      String numSerieFactura = devolucion.getNumSerieFactura();
-      numSerieFactura = numSerieFactura.substring(1);
-      String[] parts = numSerieFactura.split("-");
+      String numSerieFacturaAlbaran = devolucion.getNumSerieFactura();
+      numSerieFacturaAlbaran = numSerieFacturaAlbaran.substring(1);
+      String[] parts = numSerieFacturaAlbaran.split("-");
       String orderNumSerie = parts[0];
-      int originalNumFac = Integer.parseInt(parts[1]);
+      int albaranNumFac = Integer.parseInt(parts[1]);
+
+      log.info(albaranNumFac + " " + orderNumSerie);
+      AlbVentaCab facturaOriginal = this.albVentaCabRepository.findByNumSerieAndNumAlbaran(orderNumSerie, albaranNumFac);
+      int originalNumFac = facturaOriginal.getNumFactura();
+
       log.info("Orden a devolver: " + orderNumSerie + " " + originalNumFac);
       /*
           * Se populan los campos de la devolucion
