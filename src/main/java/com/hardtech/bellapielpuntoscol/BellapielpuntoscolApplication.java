@@ -9,7 +9,6 @@ public class BellapielpuntoscolApplication {
 
     public static void main(String[] args) {
         SpringApplication springApplication = new SpringApplication(BellapielpuntoscolApplication.class);
-        springApplication.addListeners(new ApplicationPidFileWriter());
         springApplication.run(args);
     }
 
