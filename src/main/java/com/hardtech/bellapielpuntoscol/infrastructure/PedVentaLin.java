@@ -44,6 +44,8 @@ public class PedVentaLin {
     @Column(name = "PRECIO")
     private double precio;
 
+    @Column(name = "CODALMACEN")
+    private String bodega;
     @Override
     public String toString(){
         return

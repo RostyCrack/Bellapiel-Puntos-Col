@@ -462,15 +462,18 @@ public class PuntosService {
           * Se populan los campos de la devolucion
        */
       FacturasVentaCamposLibres transaction = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
-      FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
+      FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
 
       transactionDevolucion.setPuntosAcumulados(transaction.getPuntosAcumulados()*-1);
       facturasVentaCamposLibresRepository.save(transactionDevolucion);
       /*
        * Se realiza la cancelacion
        */
+      log.info("FacturasVenta buscando: "+ originalNumFac + " " + orderNumSerie);
       FacturasVenta factura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
-      FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
+      log.info("Factura" + factura.toString());
+      log.info("FacturasVenta buscando devolucion "+ numFactura + numSerie);
+      FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
       log.info("Fetched.");
       log.info("Creating transactionId...: ");
       TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos());

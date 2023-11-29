@@ -138,8 +138,10 @@ public class PaymentLinkService {
 
         body.setCollectShipping(false);
 
+        String caja = numSerie.substring(0, 3);
         CustomerReferencesItem codVendedorField = new CustomerReferencesItem();
-        codVendedorField.setLabel(articulos.get(0).getCodVendedor());
+        codVendedorField.setLabel(articulos.get(0).getBodega() + "|" + caja);
+        //codVendedorField.setLabel(articulos.get(0).getCodVendedor());
         codVendedorField.setRequired(false);
 
         CustomerReferencesItem numPedidoField = new CustomerReferencesItem();
