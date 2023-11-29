@@ -11,7 +11,7 @@ spring:
       exclude: WEB-INF/**
   datasource:
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    url: jdbc:sqlserver://192.168.92.36;database=ICGFRONT
+    url: jdbc:sqlserver://192.168.92.19;database=ICGFRONT
     username: icgadmin
     password: Masterkey.
     jpa:
@@ -50,3 +50,6 @@ url:
 wompi:
   url: https://sandbox.wompi.co/v1/payment_links
   authorization: prv_test_hjo6BKEH3Oknxeycat9R24wrveKGNejt
+  channel: sms
+
+

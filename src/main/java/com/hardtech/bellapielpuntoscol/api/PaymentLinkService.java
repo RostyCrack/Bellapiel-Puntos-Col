@@ -11,6 +11,7 @@ import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,12 @@ public class PaymentLinkService {
 
     @Value("${wompi.authorization}")
     private String authorization;
+
+    @Value("${wompi.channel}")
+    private String channel;
+
+
+
     private static final String ACCOUNT_SID = "ACffa02de3755346b9cb012611c27ab587";
     private static final String AUTH_TOKEN = "b52ae41971036ecf43576b4aa463ef6b";
 
@@ -81,6 +88,7 @@ public class PaymentLinkService {
         ResponseEntity<PaymentLinkResponse> response = restTemplate.exchange(url, HttpMethod.POST, entity, PaymentLinkResponse.class);
         PaymentLinkResponse responseBody = response.getBody();
 
+        assert responseBody != null;
         log.info("https://checkout.wompi.co/l/"+responseBody.getData().getId());
 
         return responseBody;
@@ -90,10 +98,12 @@ public class PaymentLinkService {
         log.info("Enviando SMS");
         Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
         Message message = Message.creator(
-                new com.twilio.type.PhoneNumber("+57"+phone),
-                new com.twilio.type.PhoneNumber("+12343015274"),
-                "Este es tu link de pago: "+paymentLink)
+                new com.twilio.type.PhoneNumber("whatsapp:+573046136949"),
+                new com.twilio.type.PhoneNumber("whatsapp:+573027879004"),
+                        "¡Hola! Este es tu link de pago: " + paymentLink)
                 .create();
+        log.info(message.toString());
+
     }
 
     public List<PedVentaLin> retrievePedido(String numSerie, int numPedido){
@@ -138,22 +148,27 @@ public class PaymentLinkService {
 
         body.setCollectShipping(false);
 
+        CustomerData camposPersonalizados = getCustomerData(articulos, numSerie, numPedido);
+
+        body.setCustomerData(camposPersonalizados);
+        return body;
+    }
+
+    @NotNull
+    private static CustomerData getCustomerData(List<PedVentaLin> articulos, String numSerie, int numPedido) {
         CustomerReferencesItem codVendedorField = new CustomerReferencesItem();
         codVendedorField.setLabel(articulos.get(0).getCodVendedor());
         codVendedorField.setRequired(false);
 
         CustomerReferencesItem numPedidoField = new CustomerReferencesItem();
-        numPedidoField.setLabel(numSerie+"-"+numPedido);
+        numPedidoField.setLabel(numSerie +"-"+ numPedido);
 
 
         List<CustomerReferencesItem> customerReferencesItemList = new ArrayList<>();
         customerReferencesItemList.add(codVendedorField);
         customerReferencesItemList.add(numPedidoField);
 
-        CustomerData camposPersonalizados = new CustomerData(customerReferencesItemList);
-
-        body.setCustomerData(camposPersonalizados);
-        return body;
+        return new CustomerData(customerReferencesItemList);
     }
 
     public int retrieveTotalCostInCents(PedVentaCab pedido){
