@@ -156,8 +156,10 @@ public class PaymentLinkService {
 
     @NotNull
     private static CustomerData getCustomerData(List<PedVentaLin> articulos, String numSerie, int numPedido) {
+        String caja = numSerie.substring(0, 3);
         CustomerReferencesItem codVendedorField = new CustomerReferencesItem();
-        codVendedorField.setLabel(articulos.get(0).getCodVendedor());
+        codVendedorField.setLabel(articulos.get(0).getBodega() + "|" + caja);
+        //codVendedorField.setLabel(articulos.get(0).getCodVendedor());
         codVendedorField.setRequired(false);
 
         CustomerReferencesItem numPedidoField = new CustomerReferencesItem();

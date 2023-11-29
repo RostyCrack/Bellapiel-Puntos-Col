@@ -469,6 +469,7 @@ public class PuntosService {
       /*
        * Se realiza la cancelacion
        */
+      log.info("FacturasVenta buscando: "+ originalNumFac + " " + orderNumSerie);
       FacturasVenta factura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
       FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
       log.info("Fetched.");
