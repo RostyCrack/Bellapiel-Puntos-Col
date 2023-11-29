@@ -95,11 +95,20 @@ public class PaymentLinkService {
     }
 
     public void sendSMS(String paymentLink, String phone) {
+        String telefonoReceptor = "whatsapp:+57"+phone;
+        String telefonoEnvio = "whatsapp:+573027879004";
         log.info("Enviando SMS");
+        if (channel == "sms"){
+            log.info("Canal de envio: SMS");
+            telefonoReceptor = "+57"+phone;
+            telefonoEnvio = "+12343015274";
+        }else{
+            log.info("Canal de envio: Whatsapp");
+        }
         Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
         Message message = Message.creator(
-                new com.twilio.type.PhoneNumber("whatsapp:+573046136949"),
-                new com.twilio.type.PhoneNumber("whatsapp:+573027879004"),
+                new com.twilio.type.PhoneNumber(telefonoEnvio),
+                new com.twilio.type.PhoneNumber(telefonoReceptor),
                         "¡Hola! Este es tu link de pago: " + paymentLink)
                 .create();
         log.info(message.toString());

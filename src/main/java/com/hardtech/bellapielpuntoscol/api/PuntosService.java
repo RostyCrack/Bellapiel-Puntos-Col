@@ -591,7 +591,7 @@ public class PuntosService {
       transactionIdentifier.setTransactionId(var10001 + "-" + factura.getNumFactura());
       transactionIdentifier.setCashierId(factura.getCodVendedor());
       transactionIdentifier.setLocationCode(this.locationCode);
-      transactionIdentifier.setTransactionDate(date.toString());
+      transactionIdentifier.setTransactionDate(date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
       return transactionIdentifier;
   }
