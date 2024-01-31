@@ -9,47 +9,47 @@ spring:
       enabled: true
       additional-paths: src/main/java
       exclude: WEB-INF/**
-  datasource:
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    url: jdbc:sqlserver://192.168.92.19;database=ICGFRONT
-    username: icgadmin
-    password: Masterkey.
-    jpa:
-
+  jpa:
+    database: SQL_SERVER
+    hibernate:
+      ddl-auto: update
+    properties:
       hibernate:
-        ddl-auto: update
-        show-sql: true
-      properties:
-        hibernate:
-          dialect: org.hibernate.dialect.SQLServer2012Dialect
+        dialect: org.hibernate.dialect.SQLServer2012Dialect
 
+icgfront:
+  datasource:
+    url: jdbc:sqlserver://192.168.2.6;database=MNG_BP
+    username: ICGADMIN
+    password: BP*.S@3s3c4r5ty*.
 
 logging:
   file:
-    name: log/bellapiel-puntoscol.log
+    name: PuntosWompiLogs/pluglink-puntoscol-wompi.log
 
 server:
   port: 8091
 
 puntos-colombia:
-  url: https://apinp.puntoscolombia.com
+  url: https://api.puntoscolombia.com
   version-token: v2
   version-account: v1
   version-accumulation: v1
   version-cancellation: v1
+
 url:
   headers:
     ca-channel: L
     ca-partnercode: 830137461
     x-remote-ip: 127.0.0.1
   grant-type: client_credentials
-  client-id: 629a27ceada583648ac7625a45e899b19f  #PROD: d086a9ea188b6a2d59ac035c58c5519d75 629a27ceada583648ac7625a45e899b19f
-  client-secret: 363ee7a52b7b4a4292fb6dca6fb13262 #PROD: edf01ccf59e79a8de9770cf18510d5e6 363ee7a52b7b4a4292fb6dca6fb13262
-  locationCode: BPCC
+  client-id: d086a9ea188b6a2d59ac035c58c5519d75  #PROD: d086a9ea188b6a2d59ac035c58c5519d75 629a27ceada583648ac7625a45e899b19f
+  client-secret: edf01ccf59e79a8de9770cf18510d5e6 #PROD: edf01ccf59e79a8de9770cf18510d5e6 363ee7a52b7b4a4292fb6dca6fb13262
+  locationCode: BPHN
 
 wompi:
-  url: https://sandbox.wompi.co/v1/payment_links
-  authorization: prv_test_hjo6BKEH3Oknxeycat9R24wrveKGNejt
-  channel: sms
-
+  url: https://production.wompi.co/v1/payment_links
+  authorization: prv_prod_doNQBYi63QI5Tkze8TyjnI1pzsoVpxwW
+  channel: wa
+  number: 3027879004
 

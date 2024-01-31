@@ -34,6 +34,8 @@ public class PaymentLinkService {
     @Value("${wompi.channel}")
     private String channel;
 
+    @Value("${wompi.number}")
+    private String number;
 
 
     private static final String ACCOUNT_SID = "ACffa02de3755346b9cb012611c27ab587";
@@ -96,7 +98,7 @@ public class PaymentLinkService {
 
     public void sendSMS(String paymentLink, String phone) {
         String telefonoReceptor = "whatsapp:+57"+phone;
-        String telefonoEnvio = "whatsapp:+573027879004";
+        String telefonoEnvio = this.number;
         log.info("Enviando SMS");
         if (channel == "sms"){
             log.info("Canal de envio: SMS");
@@ -107,8 +109,8 @@ public class PaymentLinkService {
         }
         Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
         Message message = Message.creator(
-                new com.twilio.type.PhoneNumber(telefonoEnvio),
-                new com.twilio.type.PhoneNumber(telefonoReceptor),
+                    new com.twilio.type.PhoneNumber("whatsapp:+57"+phone),
+                new com.twilio.type.PhoneNumber("whatsapp:+57"+number),
                         "¡Hola! Este es tu link de pago: " + paymentLink)
                 .create();
         log.info(message.toString());
@@ -168,6 +170,8 @@ public class PaymentLinkService {
         String caja = numSerie.substring(0, 3);
         CustomerReferencesItem codVendedorField = new CustomerReferencesItem();
         codVendedorField.setLabel(articulos.get(0).getBodega() + "|" + caja);
+//        codVendedorField.setLabel("DM|BHD");
+
         //codVendedorField.setLabel(articulos.get(0).getCodVendedor());
         codVendedorField.setRequired(false);
 

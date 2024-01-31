@@ -11,5 +11,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SeriesCamposLibresRepository extends JpaRepository<SeriesCamposLibres, String> {
-    Optional<SeriesCamposLibres> findById(String id);
+
+    SeriesCamposLibres findBySerie(String serie);
+
+
 }

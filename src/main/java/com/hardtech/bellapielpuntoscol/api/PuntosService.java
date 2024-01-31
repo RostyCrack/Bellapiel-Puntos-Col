@@ -88,14 +88,17 @@ public class PuntosService {
 
   private final AlbVentaCabRepository albVentaCabRepository;
 
+  private final PruebaRepository pruebaRepository;
 
-  public PuntosService(FacturasVentaRepository facturasVentaRepository,
-                       ClienteCamposLibresRepository clienteCamposLibresRepository,
-                       FacturasVentaSeriesRepository facturasVentaSeriesRepository,
-                       ClientesRepository clientesRepository,
-                       FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
-                       AlbVentaLinRepository albVentaLinRepository,
-                       TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository) {
+  private final SeriesCamposLibresRepository seriesCamposLibresRepository;
+
+    public PuntosService(FacturasVentaRepository facturasVentaRepository,
+                         ClienteCamposLibresRepository clienteCamposLibresRepository,
+                         FacturasVentaSeriesRepository facturasVentaSeriesRepository,
+                         ClientesRepository clientesRepository,
+                         FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
+                         AlbVentaLinRepository albVentaLinRepository,
+                         TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository, PruebaRepository pruebaRepository, PruebaRepository pruebaRepository1, SeriesCamposLibresRepository seriesCamposLibresRepository) {
       this.facturasVentaRepository = facturasVentaRepository;
       this.clienteCamposLibresRepository = clienteCamposLibresRepository;
       this.facturasVentaSeriesRepository = facturasVentaSeriesRepository;
@@ -104,7 +107,9 @@ public class PuntosService {
       this.albVentaLinRepository = albVentaLinRepository;
       this.tesoreriaRepository = tesoreriaRepository;
       this.albVentaCabRepository = albVentaCabRepository;
-  }
+      this.pruebaRepository = pruebaRepository1;
+        this.seriesCamposLibresRepository = seriesCamposLibresRepository;
+    }
 
   /**
    * PASO 1:
@@ -474,7 +479,9 @@ public class PuntosService {
       FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
       log.info("Fetched.");
       log.info("Creating transactionId...: ");
-      TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos());
+
+      SeriesCamposLibres almacen = seriesCamposLibresRepository.findBySerie(orderNumSerie.substring(0, 3));
+      TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos(), "BP"+almacen.getLocationCode());
       return this.flujoCancellation(oldTransactionId, transactionDevolucion, devolucionFactura);
 
   }
@@ -591,10 +598,26 @@ public class PuntosService {
       transactionIdentifier.setTransactionId(var10001 + "-" + factura.getNumFactura());
       transactionIdentifier.setCashierId(factura.getCodVendedor());
       transactionIdentifier.setLocationCode(this.locationCode);
-      transactionIdentifier.setTransactionDate(date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+      String formattedDate = date.format(formatter);
+      transactionIdentifier.setTransactionDate(formattedDate);
       transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
       return transactionIdentifier;
   }
+
+    private TransactionIdentifier createTransactionIdentifier(FacturasVenta factura, LocalDateTime date, String locationCode) {
+        TransactionIdentifier transactionIdentifier = new TransactionIdentifier();
+        transactionIdentifier.setTerminalId(factura.getNumSerie());
+        String var10001 = factura.getNumSerie();
+        transactionIdentifier.setTransactionId(var10001 + "-" + factura.getNumFactura());
+        transactionIdentifier.setCashierId(factura.getCodVendedor());
+        transactionIdentifier.setLocationCode(locationCode);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        String formattedDate = date.format(formatter);
+        transactionIdentifier.setTransactionDate(formattedDate);
+        transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
+        return transactionIdentifier;
+    }
 
     /**
      * Metodo que se encarga de crear el Payment Method
@@ -701,6 +724,11 @@ public class PuntosService {
     }
 
 
+    public void getPruebaRepository() {
+        for (Prueba prueba: pruebaRepository.findAll()) {
+            log.info(prueba.toString());
+        }
+    }
 }
 
 

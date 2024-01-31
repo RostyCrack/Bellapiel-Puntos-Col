@@ -1,5 +1,7 @@
 package com.hardtech.bellapielpuntoscol.api;
 
+import com.hardtech.bellapielpuntoscol.context.datasource.DataSourceContextHolder;
+import com.hardtech.bellapielpuntoscol.context.datasource.DataSourceEnum;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkBody;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkResponse;
 import lombok.AllArgsConstructor;
@@ -17,8 +19,12 @@ public class PaymentLinkController {
     private final PaymentLinkService paymentLinkService;
     private final XMLService xmlService;
 
+    private final DataSourceContextHolder dataSourceContextHolder;
+
     @GetMapping({"/wompi/v1/payment-links"})
     public String requestPaymentLink() {
+        dataSourceContextHolder.setBranchContext(DataSourceEnum.ICGFRONT);
+
         PaymentLinkBody paymentLinkBody = paymentLinkService.createPaymentLinkBody("Monthly rent - Wompi Tower Apartments", "Pay here your apartment monthly rent", false, false, "COP", 15000000, "123456789");
         PaymentLinkResponse paymentLinkResponse = paymentLinkService.sendPaymentLinkRequest(paymentLinkBody);
         paymentLinkService.sendSMS("https://checkout.wompi.co/l/" + paymentLinkResponse.getData().getId(), "3046136949");
@@ -28,6 +34,7 @@ public class PaymentLinkController {
 
     @GetMapping({"/wompi/v1/payment-links2"})
     public String paymentlink(@RequestParam String numSerie, @RequestParam int numPedido) {
+        dataSourceContextHolder.setBranchContext(DataSourceEnum.ICGFRONT);
 
         try{
             return paymentLinkService.flujoPaymentlink(numSerie, numPedido);
@@ -39,6 +46,8 @@ public class PaymentLinkController {
 
     @GetMapping({"/wompi/v1/payment-link"})
     public String paymentLink(){
+        dataSourceContextHolder.setBranchContext(DataSourceEnum.ICGFRONT);
+
         try {
             Map<String, String> pedidoMap = this.xmlService.readPedidoXML("payment-link.xml");
             String numSerie = pedidoMap.get("numSerie");
