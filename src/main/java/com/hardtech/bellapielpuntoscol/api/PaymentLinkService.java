@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,19 +38,25 @@ public class PaymentLinkService {
     @Value("${wompi.number}")
     private String number;
 
+    @Value("${twilio.account-sid}")
+    private String ACCOUNT_SID;
 
-    private static final String ACCOUNT_SID = "ACffa02de3755346b9cb012611c27ab587";
-    private static final String AUTH_TOKEN = "b52ae41971036ecf43576b4aa463ef6b";
+    @Value("${twilio.auth-token}")
+    private String AUTH_TOKEN;
 
     private final PedVentaLinRepository pedVentaLinRepository;
 
     private final PedVentaCabRepository pedVentaCabRepository;
 
     private final ClientesRepository clientesRepository;
-    public PaymentLinkService(PedVentaLinRepository pedVentaLinRepository, PedVentaCabRepository pedVentaCabRepository, ClientesRepository clientesRepository){
+
+    private final WebClient createLinkWebClient;
+
+    public PaymentLinkService(PedVentaLinRepository pedVentaLinRepository, PedVentaCabRepository pedVentaCabRepository, ClientesRepository clientesRepository, WebClient createLinkWebClient){
         this.pedVentaLinRepository = pedVentaLinRepository;
         this.pedVentaCabRepository = pedVentaCabRepository;
         this.clientesRepository = clientesRepository;
+        this.createLinkWebClient = createLinkWebClient;
     }
 
 
@@ -94,6 +101,18 @@ public class PaymentLinkService {
         log.info("https://checkout.wompi.co/l/"+responseBody.getData().getId());
 
         return responseBody;
+    }
+
+    @SneakyThrows
+    private PaymentLinkResponse sendPaymentLinkRequestWebClient(PaymentLinkBody paymentLinkBody) {
+        return createLinkWebClient.post()
+                .uri(url)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer "+authorization)
+                .bodyValue(new ObjectMapper().writeValueAsString(paymentLinkBody))
+                .retrieve()
+                .bodyToMono(PaymentLinkResponse.class)
+                .block();
     }
 
     public void sendSMS(String paymentLink, String phone) {
@@ -204,19 +223,18 @@ public class PaymentLinkService {
         return phoneNumberWithOnlyNumbers;
     }
 
-    public String flujoPaymentlink(String numSerie, int numPedido){
+    public String flujoPaymentlink(String numSerie, int numPedido) {
 
         List<PedVentaLin> articulos = retrievePedido(numSerie, numPedido);
         PedVentaCab pedido = pedVentaCabRepository.findByNumSerieAndNumPedido(numSerie, numPedido);
         String phoneNumber = retrievePhoneNumber(pedido);
 
         PaymentLinkBody paymentLinkBody = createPaymentLinkBody(articulos, pedido);
-        PaymentLinkResponse paymentLinkResponse = sendPaymentLinkRequest(paymentLinkBody);
+        PaymentLinkResponse paymentLinkResponse = sendPaymentLinkRequestWebClient(paymentLinkBody);
 
         String paymentLink = "https://checkout.wompi.co/l/"+paymentLinkResponse.getData().getId();
         sendSMS(paymentLink, phoneNumber);
 
         return paymentLink;
     }
-
 }

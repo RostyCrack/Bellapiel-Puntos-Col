@@ -53,3 +53,6 @@ wompi:
   channel: wa
   number: 3027879004
 
+twilio:
+    account-sid: ACffa02de3755346b9cb012611c27ab587
+    auth-token: c5c0e63d1114ab9d5d87891e7c06eb66

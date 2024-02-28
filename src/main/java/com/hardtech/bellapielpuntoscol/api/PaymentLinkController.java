@@ -5,6 +5,7 @@ import com.hardtech.bellapielpuntoscol.context.datasource.DataSourceEnum;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkBody;
 import com.hardtech.bellapielpuntoscol.context.domain.paymentLink.PaymentLinkResponse;
 import lombok.AllArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,31 +34,31 @@ public class PaymentLinkController {
     }
 
     @GetMapping({"/wompi/v1/payment-links2"})
-    public String paymentlink(@RequestParam String numSerie, @RequestParam int numPedido) {
+    public ResponseEntity<String> paymentlink(@RequestParam String numSerie, @RequestParam int numPedido) {
         dataSourceContextHolder.setBranchContext(DataSourceEnum.ICGFRONT);
 
         try{
-            return paymentLinkService.flujoPaymentlink(numSerie, numPedido);
+            var paymentLink = paymentLinkService.flujoPaymentlink(numSerie, numPedido);
+            return ResponseEntity.ok(paymentLink);
         }catch (Exception e) {
-            return e.getMessage();
+            return ResponseEntity.badRequest().body("Error al crear el link de pago:" + e.getMessage());
         }
 
     }
 
     @GetMapping({"/wompi/v1/payment-link"})
-    public String paymentLink(){
+    public ResponseEntity<String> paymentLink(){
         dataSourceContextHolder.setBranchContext(DataSourceEnum.ICGFRONT);
 
         try {
             Map<String, String> pedidoMap = this.xmlService.readPedidoXML("payment-link.xml");
             String numSerie = pedidoMap.get("numSerie");
             int numPedido = Integer.parseInt(pedidoMap.get("numFactura"));
-            return this.paymentlink(numSerie, numPedido);
+            var paymentLink = paymentLinkService.flujoPaymentlink(numSerie, numPedido);
+            return ResponseEntity.ok(paymentLink);
         }
         catch (JAXBException e){
-            return "Error al leer el archivo XML.";
+            return ResponseEntity.badRequest().body("Error al crear el link de pago.");
         }
     }
-
-
 }

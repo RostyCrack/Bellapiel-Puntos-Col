@@ -1,5 +1,7 @@
 package com.hardtech.bellapielpuntoscol.context.domain.paymentLink;
 
-public class Meta{
+import java.io.Serializable;
+
+public class Meta implements Serializable {
 
 }
