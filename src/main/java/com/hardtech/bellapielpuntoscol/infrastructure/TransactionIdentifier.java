@@ -5,6 +5,9 @@
 
 package com.hardtech.bellapielpuntoscol.infrastructure;
 
+import lombok.Getter;
+
+@Getter
 public class TransactionIdentifier {
     private String terminalId;
     private String transactionId;
@@ -15,30 +18,6 @@ public class TransactionIdentifier {
 
     public String toString() {
         return "TransactionIdentifier{transactionId=" + this.transactionId + ", terminal_id='" + this.terminalId + "', transactionDate=" + this.transactionDate + ", locationCode='" + this.locationCode + "', nut='" + this.nut + "'}";
-    }
-
-    public String getTerminalId() {
-        return this.terminalId;
-    }
-
-    public String getTransactionId() {
-        return this.transactionId;
-    }
-
-    public String getCashierId() {
-        return this.cashierId;
-    }
-
-    public String getLocationCode() {
-        return this.locationCode;
-    }
-
-    public String getTransactionDate() {
-        return this.transactionDate;
-    }
-
-    public String getNut() {
-        return this.nut;
     }
 
     public void setTerminalId(final String terminalId) {

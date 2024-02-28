@@ -51,6 +51,9 @@ public class FacturasVentaCamposLibres {
     )
     private String mensajePuntos;
 
+//    @Column(name = "PUNTOS_LOCATION_CODE")
+//    private String locationCode;
+
     public FacturasVentaCamposLibres() {
     }
 
@@ -101,4 +104,6 @@ public class FacturasVentaCamposLibres {
     public void setMensajePuntos(final String mensajePuntos) {
         this.mensajePuntos = mensajePuntos;
     }
+
+
 }

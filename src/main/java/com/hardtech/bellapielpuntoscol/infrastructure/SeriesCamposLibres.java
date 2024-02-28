@@ -8,7 +8,9 @@ package com.hardtech.bellapielpuntoscol.infrastructure;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import lombok.Getter;
 
+@Getter
 @Entity(
         name = "SERIESCAMPOSLIBRES"
 )
@@ -19,17 +21,9 @@ public class SeriesCamposLibres {
     )
     private String serie;
     @Column(
-            name = "LOCATION_CODE"
+            name = "CODIGO_ALMACEN"
     )
     private String locationCode;
-
-    public String getSerie() {
-        return this.serie;
-    }
-
-    public String getLocationCode() {
-        return this.locationCode;
-    }
 
     public void setSerie(final String serie) {
         this.serie = serie;

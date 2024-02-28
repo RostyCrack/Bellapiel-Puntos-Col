@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<doc>
+   <bd>
+      <server>BPPRUEBAS1</server>
+      <database>ICGFRONT</database>
+      <user>ICGAdmin</user>
+   </bd>
+   <codvendedor>101962</codvendedor>
+   <tipodoc>PEDVENTA</tipodoc>
+   <idtipodoc>1</idtipodoc>
+   <serie>GAAA</serie>
+   <numero>3</numero>
+   <n>B</n>
+<GuardandoTef>0</GuardandoTef>
+<GuardandoTef2>0</GuardandoTef2>
+<guardandodocumentoabonar>0</guardandodocumentoabonar>
+</doc>

@@ -1,22 +1,33 @@
 package com.hardtech.bellapielpuntoscol.api;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.AccumulationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.RequestBody;
+import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.AccountNotAllowedException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.CommonBusinessErrorException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.DuplicateTransactionException;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
+import com.hardtech.bellapielpuntoscol.context.domain.shared.ExpiredCertificateException;
 import com.hardtech.bellapielpuntoscol.context.domain.token.TokenResponse;
 import com.hardtech.bellapielpuntoscol.infrastructure.*;
 import lombok.SneakyThrows;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.ssl.SSLContexts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -24,9 +35,16 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.net.ssl.SSLContext;
+import java.io.FileInputStream;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.List;
 
 
@@ -57,6 +75,8 @@ public class PuntosService {
   private String versionAccumulation;
   @Value("${puntos-colombia.version-cancellation}")
   private String versionCancellation;
+
+
   private TokenResponse tokenResponse;
   private final ClientesRepository clientesRepository;
   private final FacturasVentaRepository facturasVentaRepository;
@@ -64,27 +84,32 @@ public class PuntosService {
   private final FacturasVentaSeriesRepository facturasVentaSeriesRepository;
   private final FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository;
   private final AlbVentaLinRepository albVentaLinRepository;
-  private final AlbVentaCabRepository albVentaCabRepository;
   private final TesoreriaRepository tesoreriaRepository;
 
+  private final AlbVentaCabRepository albVentaCabRepository;
 
-  public PuntosService(FacturasVentaRepository facturasVentaRepository,
-                       ClienteCamposLibresRepository clienteCamposLibresRepository,
-                       FacturasVentaSeriesRepository facturasVentaSeriesRepository,
-                       ClientesRepository clientesRepository,
-                       FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
-                       AlbVentaLinRepository albVentaLinRepository,
-                       AlbVentaCabRepository albVentaCabRepository,
-                       TesoreriaRepository tesoreriaRepository) {
+  private final PruebaRepository pruebaRepository;
+
+  private final SeriesCamposLibresRepository seriesCamposLibresRepository;
+
+    public PuntosService(FacturasVentaRepository facturasVentaRepository,
+                         ClienteCamposLibresRepository clienteCamposLibresRepository,
+                         FacturasVentaSeriesRepository facturasVentaSeriesRepository,
+                         ClientesRepository clientesRepository,
+                         FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
+                         AlbVentaLinRepository albVentaLinRepository,
+                         TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository, PruebaRepository pruebaRepository, PruebaRepository pruebaRepository1, SeriesCamposLibresRepository seriesCamposLibresRepository) {
       this.facturasVentaRepository = facturasVentaRepository;
       this.clienteCamposLibresRepository = clienteCamposLibresRepository;
       this.facturasVentaSeriesRepository = facturasVentaSeriesRepository;
       this.clientesRepository = clientesRepository;
       this.facturasVentaCamposLibresRepository = facturasVentaCamposLibresRepository;
       this.albVentaLinRepository = albVentaLinRepository;
-      this.albVentaCabRepository = albVentaCabRepository;
       this.tesoreriaRepository = tesoreriaRepository;
-  }
+      this.albVentaCabRepository = albVentaCabRepository;
+      this.pruebaRepository = pruebaRepository1;
+        this.seriesCamposLibresRepository = seriesCamposLibresRepository;
+    }
 
   /**
    * PASO 1:
@@ -93,6 +118,8 @@ public class PuntosService {
    */
   public TokenResponse sendTokenRequest() {
       TokenResponse tokenResponse = null;
+
+
       RestTemplate restTemplate = buildRestTemplate();
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -114,7 +141,9 @@ public class PuntosService {
 
           return tokenResponse;
       } catch (HttpServerErrorException | HttpClientErrorException var8) {
+
           log.error(var8.getMessage());
+
           throw var8;
       }
   }
@@ -164,9 +193,15 @@ public class PuntosService {
       /*
          * PASO 1: Si el token no existe o esta expirado, se envia una nueva peticion de token
        */
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              return ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              return ("Credenciales invalidas, no se puede recibir token");
+          }
           log.info("Token request sent successfully");
       }
       log.info("Token: " + this.tokenResponse.getIsTokenExpired() + " " + this.tokenResponse.getExpiresAt());
@@ -230,17 +265,22 @@ public class PuntosService {
   private void flujoAccumulation(FacturasVentaCamposLibres transaction, FacturasVenta factura,
                                  AccountResponse accountResponse, String documentNo, String documentType) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
-          log.info("Token request sent successfully");
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              throw new RuntimeException ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              throw new RuntimeException ("Credenciales invalidas, no se puede recibir token");
+          }
       }
       AccumulationResponse accumulationResponse;
       TransactionIdentifier transactionIdentifier = this.createTransactionIdentifier(factura);
       try {
           accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
       }
-      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException e){
+      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException | AccountNotAllowedException e ){
           throw e;
       }
       catch (Exception e){
@@ -299,11 +339,10 @@ public class PuntosService {
           headers.setBearerAuth(this.tokenResponse.getAccessToken());
           headers.set("CA-CHANNEL", this.caChannel);
           headers.set("X-REMOTE-IP", this.xRemoteIp);
-
+          headers.setContentType(MediaType.APPLICATION_JSON);
           try {
               ResponseEntity<AccumulationResponse> response = restTemplate
                       .exchange(requestUrl, HttpMethod.POST, new HttpEntity<>(jsonRequest, headers), AccumulationResponse.class);
-              response.getBody();
               accumulationResponse = response.getBody();
               transaction.setFechaAcumulacionPuntos(LocalDateTime.parse(transactionIdentifier.getTransactionDate()));
               this.facturasVentaCamposLibresRepository.save(transaction);
@@ -332,7 +371,7 @@ public class PuntosService {
       } else {
           transaction.setMensajePuntos("Cuenta no permitada para acumular puntos");
           this.facturasVentaCamposLibresRepository.save(transaction);
-          throw new RuntimeException("Contactese con Puntos Colombia");
+          throw new AccountNotAllowedException();
       }
   }
 
@@ -344,11 +383,17 @@ public class PuntosService {
      */
   public String flujoCancellation(TransactionIdentifier originalTransactionId, FacturasVentaCamposLibres transaction, FacturasVenta facturaDevolucion) {
 
-      if (this.tokenResponse == null || !this.tokenResponse.getIsTokenExpired()) {
+      if (this.tokenResponse == null || this.tokenResponse.getIsTokenExpired()) {
           log.info("Sending token request...");
-          this.tokenResponse = this.sendTokenRequest();
-          log.info("Token request sent successfully");
+          try{
+              this.tokenResponse = this.sendTokenRequest();
+          }catch (HttpServerErrorException response) {
+              return ("Error en el servidor de Puntos Colombia");
+          }catch (HttpClientErrorException response) {
+              return ("Credenciales invalidas, no se puede recibir token");
+          }
       }
+
       LocalDateTime now = LocalDateTime.now();
       TransactionIdentifier newTransactionId = this.createTransactionIdentifier(facturaDevolucion, now);
       String newJson = this.buildCancellationJsonRequest(originalTransactionId, newTransactionId);
@@ -396,41 +441,49 @@ public class PuntosService {
     /**
      * Metodo que se encarga de preparar la peticion de cancelacion manual de puntos a Puntos Colombia
      * @param numSerie Numero de serie de la factura
-     * @param numAlbaran Numero de devolucion de la factura
+     * @param numFactura Numero de devolucion de la factura
      */
-  public String cancellation(String numSerie, int numAlbaran) {
-      log.info("Fetching transaction: " + numSerie + " " + numAlbaran + "...");
+  public String cancellation(String numSerie, int numFactura) {
+      log.info("Fetching transaction: " + numSerie + " " + numFactura + "...");
 
+      AlbVentaCab devolucionAlbaran = this.albVentaCabRepository.findByNumSerieAndNumFactura(numSerie, numFactura);
+      int numAlbaran = devolucionAlbaran.getNumAlbaran();
       /*
         * Se obtiene la factura original a partir de la devolución
        */
       AlbVentaLin devolucion = this.albVentaLinRepository.findByNumAlbaranAndNumSerie(numAlbaran, numSerie);
-      String numSerieFactura = devolucion.getNumSerieFactura();
-      numSerieFactura = numSerieFactura.substring(1);
-      String[] parts = numSerieFactura.split("-");
+      String numSerieFacturaAlbaran = devolucion.getNumSerieFactura();
+      numSerieFacturaAlbaran = numSerieFacturaAlbaran.substring(1);
+      String[] parts = numSerieFacturaAlbaran.split("-");
       String orderNumSerie = parts[0];
-      int orderNumFactura = Integer.parseInt(parts[1]);
-      AlbVentaCab albVentaCab = this.albVentaCabRepository.findByNumSerieAndNumAlbaran(orderNumSerie, orderNumFactura);
-      int originalNumFac = albVentaCab.getNumFactura();
-      log.info("Orden a devolver: " + orderNumSerie + " " + originalNumFac);
+      int albaranNumFac = Integer.parseInt(parts[1]);
 
+      log.info(albaranNumFac + " " + orderNumSerie);
+      AlbVentaCab facturaOriginal = this.albVentaCabRepository.findByNumSerieAndNumAlbaran(orderNumSerie, albaranNumFac);
+      int originalNumFac = facturaOriginal.getNumFactura();
+
+      log.info("Orden a devolver: " + orderNumSerie + " " + originalNumFac);
       /*
           * Se populan los campos de la devolucion
        */
       FacturasVentaCamposLibres transaction = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
-      FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
+      FacturasVentaCamposLibres transactionDevolucion = this.facturasVentaCamposLibresRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
 
       transactionDevolucion.setPuntosAcumulados(transaction.getPuntosAcumulados()*-1);
       facturasVentaCamposLibresRepository.save(transactionDevolucion);
       /*
        * Se realiza la cancelacion
        */
+      log.info("FacturasVenta buscando: "+ originalNumFac + " " + orderNumSerie);
       FacturasVenta factura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(originalNumFac, orderNumSerie);
-      FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numAlbaran, numSerie);
+      FacturasVenta devolucionFactura = this.facturasVentaRepository.findByNumFacturaAndNumSerie(numFactura, numSerie);
       log.info("Fetched.");
       log.info("Creating transactionId...: ");
-      TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos());
+
+      SeriesCamposLibres almacen = seriesCamposLibresRepository.findBySerie(orderNumSerie.substring(0, 3));
+      TransactionIdentifier oldTransactionId = this.createTransactionIdentifier(factura, transaction.getFechaAcumulacionPuntos(), "BP"+almacen.getLocationCode());
       return this.flujoCancellation(oldTransactionId, transactionDevolucion, devolucionFactura);
+
   }
 
 
@@ -440,12 +493,13 @@ public class PuntosService {
      * @return Respuesta de la peticion de cancelacion
      */
   public CancelationResponse sendCancellationRequest(String newJson) {
-      RestTemplate restTemplate = new RestTemplateBuilder().setConnectTimeout(Duration.ofSeconds(13L)).setReadTimeout(Duration.ofSeconds(13L)).build();
+      RestTemplate restTemplate = buildRestTemplate();
       String requestUrl = this.url + "/pos-management/" + this.versionCancellation + "/transactions/cancel";
       HttpHeaders headers = new HttpHeaders();
       headers.setBearerAuth(this.tokenResponse.getAccessToken());
       headers.set("CA-CHANNEL", this.caChannel);
       headers.set("X-REMOTE-IP", this.xRemoteIp);
+      headers.setContentType(MediaType.APPLICATION_JSON);
 
       try {
           ResponseEntity<CancelationResponse> response = restTemplate
@@ -526,7 +580,7 @@ public class PuntosService {
       transactionIdentifier.setCashierId(factura.getCodVendedor());
       transactionIdentifier.setLocationCode(this.locationCode);
       LocalDateTime date = factura.getFecha().with(LocalTime.from(factura.getHora()));
-      transactionIdentifier.setTransactionDate(String.valueOf(date));
+      transactionIdentifier.setTransactionDate(date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
       transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
       return transactionIdentifier;
   }
@@ -544,10 +598,26 @@ public class PuntosService {
       transactionIdentifier.setTransactionId(var10001 + "-" + factura.getNumFactura());
       transactionIdentifier.setCashierId(factura.getCodVendedor());
       transactionIdentifier.setLocationCode(this.locationCode);
-      transactionIdentifier.setTransactionDate(date.toString());
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+      String formattedDate = date.format(formatter);
+      transactionIdentifier.setTransactionDate(formattedDate);
       transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
       return transactionIdentifier;
   }
+
+    private TransactionIdentifier createTransactionIdentifier(FacturasVenta factura, LocalDateTime date, String locationCode) {
+        TransactionIdentifier transactionIdentifier = new TransactionIdentifier();
+        transactionIdentifier.setTerminalId(factura.getNumSerie());
+        String var10001 = factura.getNumSerie();
+        transactionIdentifier.setTransactionId(var10001 + "-" + factura.getNumFactura());
+        transactionIdentifier.setCashierId(factura.getCodVendedor());
+        transactionIdentifier.setLocationCode(locationCode);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        String formattedDate = date.format(formatter);
+        transactionIdentifier.setTransactionDate(formattedDate);
+        transactionIdentifier.setNut(this.facturasVentaSeriesRepository.findByNumFacturaAndNumSerie(factura.getNumFactura(), factura.getNumSerie()).getNumeroFiscal());
+        return transactionIdentifier;
+    }
 
     /**
      * Metodo que se encarga de crear el Payment Method
@@ -575,12 +645,63 @@ public class PuntosService {
      * Metodo que se encarga de crear la RestTemplate con timeoute de 13 segundos
      * @return RestTemplate
      */
-  private RestTemplate buildRestTemplate() {
-      return (new RestTemplateBuilder())
-              .setConnectTimeout(Duration.ofSeconds(13))
-              .setReadTimeout(Duration.ofSeconds(13))
-              .build();
-  }
+    @SneakyThrows
+    private RestTemplate buildRestTemplate() {
+        String p12Password = "212738A9-9F64-434E-8D5C-5E0C341E2C60";
+        String appDirectory = System.getProperty("user.dir");
+        String p12FilePath = appDirectory + "/pcobella piel-p384sv_key.p12";
+
+        try {
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            try (FileInputStream inputStream = new FileInputStream(p12FilePath)) {
+                keyStore.load(inputStream, p12Password.toCharArray());
+            }
+
+            String alias = keyStore.aliases().nextElement();
+            X509Certificate certificate = (X509Certificate) keyStore.getCertificate(alias);
+            if(certificate.getNotAfter().before(new Date())){
+                throw new ExpiredCertificateException(certificate.getNotAfter().toString());
+            }
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, p12Password.toCharArray());
+
+            keyStore.setKeyEntry("privateKeyAlias", privateKey, p12Password.toCharArray(), new X509Certificate[]{certificate});
+
+            SSLContext sslcontext = SSLContexts.custom()
+                    .setProtocol("TLSv1.2")
+                    .loadKeyMaterial(keyStore, p12Password.toCharArray())
+                    .loadTrustMaterial(null, new TrustAllStrategy())
+                    .build();
+
+            SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslcontext);
+
+            HttpClientConnectionManager cm = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(sslSocketFactory)
+                    .build();
+
+            CloseableHttpClient httpClient =  HttpClients.custom()
+                    .setConnectionManager(cm)
+                    .evictExpiredConnections()
+                    .build();
+
+            HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
+
+
+
+            return (new RestTemplateBuilder())
+                    .requestFactory(() -> requestFactory)
+                    .setConnectTimeout(Duration.ofSeconds(13))
+                    .build();
+
+
+        }
+        catch (ExpiredCertificateException e){
+            throw e;
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build the custom RestTemplate with SSL.", e);
+        }
+
+    }
 
     /**
      * Metodo para acumular transacciones pendientes
@@ -600,8 +721,15 @@ public class PuntosService {
                 accumulate(transaction.getNumSerie(), transaction.getNumFactura());
             }
         }
-
     }
 
+
+    public void getPruebaRepository() {
+        for (Prueba prueba: pruebaRepository.findAll()) {
+            log.info(prueba.toString());
+        }
+    }
 }
+
+
 

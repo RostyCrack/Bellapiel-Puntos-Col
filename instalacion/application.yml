@@ -9,23 +9,24 @@ spring:
       enabled: true
       additional-paths: src/main/java
       exclude: WEB-INF/**
-  jpa:
-    database: SQL_SERVER
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.SQLServer2012Dialect
-
-icgfront:
   datasource:
-    url: jdbc:sqlserver://192.168.2.6;database=MNG_BP
-    username: ICGADMIN
-    password: BP*.S@3s3c4r5ty*.
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://$VARIABLEBASEDEDATOS;database=ICGFRONT
+    username: icgadmin
+    password: Masterkey.
+    jpa:
+
+      hibernate:
+        ddl-auto: update
+        show-sql: true
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.SQLServer2012Dialect
+
 
 logging:
   file:
-    name: PuntosWompiLogs/pluglink-puntoscol-wompi.log
+    name: log/bellapiel-puntoscol.log
 
 server:
   port: 8091
@@ -36,7 +37,6 @@ puntos-colombia:
   version-account: v1
   version-accumulation: v1
   version-cancellation: v1
-
 url:
   headers:
     ca-channel: L
@@ -45,14 +45,8 @@ url:
   grant-type: client_credentials
   client-id: d086a9ea188b6a2d59ac035c58c5519d75  #PROD: d086a9ea188b6a2d59ac035c58c5519d75 629a27ceada583648ac7625a45e899b19f
   client-secret: edf01ccf59e79a8de9770cf18510d5e6 #PROD: edf01ccf59e79a8de9770cf18510d5e6 363ee7a52b7b4a4292fb6dca6fb13262
-  locationCode: BPHN
+  locationCode: $VARIABLELOCATIONCODE
 
 wompi:
-  url: https://production.wompi.co/v1/payment_links
-  authorization: prv_prod_doNQBYi63QI5Tkze8TyjnI1pzsoVpxwW
-  channel: wa
-  number: 3027879004
-
-twilio:
-    account-sid: ACffa02de3755346b9cb012611c27ab587
-    auth-token: c5c0e63d1114ab9d5d87891e7c06eb66
+  url: https://sandbox.wompi.co/v1/payment_links
+  authorization: prv_test_hjo6BKEH3Oknxeycat9R24wrveKGNejt
