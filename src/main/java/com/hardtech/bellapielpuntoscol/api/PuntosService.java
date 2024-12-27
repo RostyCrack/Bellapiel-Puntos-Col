@@ -2,12 +2,14 @@ package com.hardtech.bellapielpuntoscol.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.hardtech.bellapielpuntoscol.configuration.PaymentMehtodProperties;
 import com.hardtech.bellapielpuntoscol.context.domain.account.AccountResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.AccumulationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.RequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.AccountNotAllowedException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.CommonBusinessErrorException;
 import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.DuplicateTransactionException;
+import com.hardtech.bellapielpuntoscol.context.domain.accumulation.exceptions.PaymentMethodDontAccumulateException;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationRequestBody;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.CancelationResponse;
 import com.hardtech.bellapielpuntoscol.context.domain.cancelation.exceptions.TimeOutException;
@@ -76,6 +78,8 @@ public class PuntosService {
   @Value("${puntos-colombia.version-cancellation}")
   private String versionCancellation;
 
+  private final PaymentMehtodProperties paymentMehtodProperties;
+
 
   private TokenResponse tokenResponse;
   private final ClientesRepository clientesRepository;
@@ -98,7 +102,10 @@ public class PuntosService {
                          ClientesRepository clientesRepository,
                          FacturasVentaCamposLibresRepository facturasVentaCamposLibresRepository,
                          AlbVentaLinRepository albVentaLinRepository,
-                         TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository, PruebaRepository pruebaRepository, PruebaRepository pruebaRepository1, SeriesCamposLibresRepository seriesCamposLibresRepository) {
+                         TesoreriaRepository tesoreriaRepository, AlbVentaCabRepository albVentaCabRepository,
+                         PruebaRepository pruebaRepository, PruebaRepository pruebaRepository1,
+                         SeriesCamposLibresRepository seriesCamposLibresRepository,
+                         PaymentMehtodProperties paymentMehtodProperties) {
       this.facturasVentaRepository = facturasVentaRepository;
       this.clienteCamposLibresRepository = clienteCamposLibresRepository;
       this.facturasVentaSeriesRepository = facturasVentaSeriesRepository;
@@ -109,6 +116,7 @@ public class PuntosService {
       this.albVentaCabRepository = albVentaCabRepository;
       this.pruebaRepository = pruebaRepository1;
         this.seriesCamposLibresRepository = seriesCamposLibresRepository;
+        this.paymentMehtodProperties = paymentMehtodProperties;
     }
 
   /**
@@ -189,6 +197,7 @@ public class PuntosService {
      */
   public String accumulate(String numSerie, int numFactura) {
 
+      log.info(paymentMehtodProperties.getInvalid().toString());
       log.info("Fetching transaction: " + numSerie + " " + numFactura + "...");
       /*
          * PASO 1: Si el token no existe o esta expirado, se envia una nueva peticion de token
@@ -280,7 +289,7 @@ public class PuntosService {
       try {
           accumulationResponse = this.sendAccumulationRequest(transaction, accountResponse, factura, documentNo, documentType, transactionIdentifier);
       }
-      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException | AccountNotAllowedException e ){
+      catch (HttpServerErrorException | TimeOutException | CommonBusinessErrorException | AccountNotAllowedException | DuplicateTransactionException e ){
           throw e;
       }
       catch (Exception e){
@@ -444,7 +453,7 @@ public class PuntosService {
      * @param numFactura Numero de devolucion de la factura
      */
   public String cancellation(String numSerie, int numFactura) {
-      log.info("Fetching transaction: " + numSerie + " " + numFactura + "...");
+      log.info("Fetching transaction:{} {} ",numSerie, numFactura);
 
       AlbVentaCab devolucionAlbaran = this.albVentaCabRepository.findByNumSerieAndNumFactura(numSerie, numFactura);
       int numAlbaran = devolucionAlbaran.getNumAlbaran();
@@ -524,8 +533,8 @@ public class PuntosService {
   public String buildJsonRequest(FacturasVenta factura, String documentNo, String documentType, TransactionIdentifier transactionIdentifier) {
       String numSerie = factura.getNumSerie();
       int numFactura = factura.getNumFactura();
-      log.info("Building JSON request for " + numSerie + "-" + numFactura);
-      log.info("transactionIdentifierList: " + transactionIdentifier);
+      log.info("Building JSON request for {}-{}", numSerie, numFactura);
+      log.info("transactionIdentifierList: {}", transactionIdentifier);
 
       RequestBody requestBody = new RequestBody();
       requestBody.setDocumentNo(documentNo);
@@ -534,8 +543,15 @@ public class PuntosService {
 
       List<Tesoreria> tesoreria = this.tesoreriaRepository.findDistinctBySerieAndNumero(numSerie, numFactura);
 
+
+
       for (Tesoreria tesoreria1 : tesoreria) {
-          PaymentMethod paymentMethod = this.createPaymentMethod(tesoreria1.getCodTipoPago(), tesoreria1.getImporte());
+          var tipoPago = tesoreria1.getCodTipoPago();
+          if (paymentMehtodProperties.getInvalid().contains(tipoPago)){
+              throw new PaymentMethodDontAccumulateException();
+          }
+          PaymentMethod paymentMethod = this.createPaymentMethod(tipoPago, tesoreria1.getImporte());
+
           requestBody.append(paymentMethod);
       }
 
@@ -543,7 +559,7 @@ public class PuntosService {
       ObjectMapper objectMapper = new ObjectMapper();
       objectMapper.registerModule(new JavaTimeModule());
       String jsonBody = objectMapper.writeValueAsString(requestBody);
-      log.info("JSON Built: " + jsonBody);
+      log.info("JSON Built:{} ", jsonBody);
       return jsonBody;
   }
 

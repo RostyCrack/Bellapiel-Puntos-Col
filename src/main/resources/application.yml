@@ -20,8 +20,8 @@ spring:
 icgfront:
   datasource:
     url: jdbc:sqlserver://192.168.2.6;database=MNG_BP
-    username: ICGADMIN
-    password: BP*.S@3s3c4r5ty*.
+    username: icgadmin
+    password: 2025*.B3ll4P13l
 
 logging:
   file:
@@ -36,6 +36,10 @@ puntos-colombia:
   version-account: v1
   version-accumulation: v1
   version-cancellation: v1
+
+payment-methods:
+  invalid:
+    -"3"
 
 url:
   headers:
@@ -56,3 +60,4 @@ wompi:
 twilio:
     account-sid: ACffa02de3755346b9cb012611c27ab587
     auth-token: c5c0e63d1114ab9d5d87891e7c06eb66
+    url: https://api.twilio.com/2010-04-01/Accounts/ACffa02de3755346b9cb012611c27ab587/Messages.json

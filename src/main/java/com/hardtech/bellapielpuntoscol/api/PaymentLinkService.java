@@ -15,7 +15,9 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
@@ -43,6 +45,9 @@ public class PaymentLinkService {
 
     @Value("${twilio.auth-token}")
     private String AUTH_TOKEN;
+
+    @Value("${twilio.url}")
+    private String twilioUrl;
 
     private final PedVentaLinRepository pedVentaLinRepository;
 
@@ -103,6 +108,7 @@ public class PaymentLinkService {
         return responseBody;
     }
 
+    /*
     @SneakyThrows
     private PaymentLinkResponse sendPaymentLinkRequestWebClient(PaymentLinkBody paymentLinkBody) {
         return createLinkWebClient.post()
@@ -115,25 +121,41 @@ public class PaymentLinkService {
                 .block();
     }
 
-    public void sendSMS(String paymentLink, String phone) {
-        String telefonoReceptor = "whatsapp:+57"+phone;
-        String telefonoEnvio = this.number;
-        log.info("Enviando SMS");
-        if (channel == "sms"){
-            log.info("Canal de envio: SMS");
-            telefonoReceptor = "+57"+phone;
-            telefonoEnvio = "+12343015274";
-        }else{
-            log.info("Canal de envio: Whatsapp");
-        }
-        Twilio.init(ACCOUNT_SID, AUTH_TOKEN);
-        Message message = Message.creator(
-                    new com.twilio.type.PhoneNumber("whatsapp:+57"+phone),
-                new com.twilio.type.PhoneNumber("whatsapp:+57"+number),
-                        "¡Hola! Este es tu link de pago: " + paymentLink)
-                .create();
-        log.info(message.toString());
+     */
 
+    @SneakyThrows
+    private PaymentLinkResponse sendPaymentLinkRequestWebClient(PaymentLinkBody paymentLinkBody) {
+        return createLinkWebClient.post()
+                .uri(url)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer "+authorization)
+                .bodyValue(new ObjectMapper().writeValueAsString(paymentLinkBody))
+                .retrieve()
+                .bodyToMono(PaymentLinkResponse.class)
+                .block();
+    }
+
+
+    public void sendSMS(String to, String link) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth(ACCOUNT_SID, AUTH_TOKEN);
+
+        try {
+            createLinkWebClient.post()
+                    .uri(twilioUrl)
+                    .headers(httpHeaders -> httpHeaders.addAll(headers))
+                    .body(BodyInserters.fromFormData("To", "whatsapp:+57"+to)
+                            .with("From", "whatsapp:+57"+number)
+                            .with("Body", "¡Hola! Este es tu link de pago: " + link))
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .block();  // Blocking call to wait for the response
+
+            log.info("Mensaje enviado");
+        } catch (Exception e) {
+            log.error("Error al enviar el mensaje", e);
+        }
     }
 
     public List<PedVentaLin> retrievePedido(String numSerie, int numPedido){
@@ -231,6 +253,7 @@ public class PaymentLinkService {
 
         PaymentLinkBody paymentLinkBody = createPaymentLinkBody(articulos, pedido);
         PaymentLinkResponse paymentLinkResponse = sendPaymentLinkRequestWebClient(paymentLinkBody);
+
 
         String paymentLink = "https://checkout.wompi.co/l/"+paymentLinkResponse.getData().getId();
         sendSMS(paymentLink, phoneNumber);
