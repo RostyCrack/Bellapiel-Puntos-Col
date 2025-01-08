@@ -44,7 +44,7 @@ public class DataSourceRouting extends AbstractRoutingDataSource {
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 		dataSource.setUrl("jdbc:sqlserver://192.168.2.6;database=MNG_BP");
 		dataSource.setUsername("ICGADMIN");
-		dataSource.setPassword("BP*.S@3s3c4r5ty*.");
+		dataSource.setPassword("2025*.B3ll4P13l");
 		return dataSource;
 	}
 }

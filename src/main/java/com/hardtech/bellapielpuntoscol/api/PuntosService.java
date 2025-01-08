@@ -547,12 +547,13 @@ public class PuntosService {
 
       for (Tesoreria tesoreria1 : tesoreria) {
           var tipoPago = tesoreria1.getCodTipoPago();
-          if (paymentMehtodProperties.getInvalid().contains(tipoPago)){
-              throw new PaymentMethodDontAccumulateException();
+          if (!paymentMehtodProperties.getInvalid().contains(tipoPago)){
+              PaymentMethod paymentMethod = this.createPaymentMethod(tipoPago, tesoreria1.getImporte());
+              requestBody.append(paymentMethod);
           }
-          PaymentMethod paymentMethod = this.createPaymentMethod(tipoPago, tesoreria1.getImporte());
-
-          requestBody.append(paymentMethod);
+          else{
+              log.info("Tipo de pago no acumulable: {}", tipoPago);
+          }
       }
 
       requestBody.setTransactionIdentifier(transactionIdentifier);
